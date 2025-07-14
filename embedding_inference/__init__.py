@@ -1,1 +1,2 @@
 from embeddings_dataset import EmbeddingsDataset
+from embedding_inference_ import EmbeddingInference

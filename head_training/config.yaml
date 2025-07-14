@@ -2,13 +2,16 @@ valid_size: 0.15
 test_size: 0.15
 pos_weight: 1.5
 
-train:
-  fw_batch_size: 512
-  bw_batch_size: 512
-  lr: 0.2
-  weight_decay: 1e-4
-  epochs: 300
-  patience: 20
-  aggregation: mean
-  load_path:
-  save_path:
+input_dim: 768
+hidden_dim: 16
+aggregation: attention
+flatten: False
+
+batch_size: 512
+lr: 0.02
+weight_decay: 1e-4
+epochs: 300
+patience: 20
+
+load_path:
+save_path:

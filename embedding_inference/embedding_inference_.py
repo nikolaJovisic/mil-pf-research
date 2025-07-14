@@ -6,10 +6,11 @@ from torch.utils.data import DataLoader
 import h5py
 from pathlib import Path
 from omegaconf import OmegaConf
-from model.build import build_model
-from utils.serialization import save_embedding_inference
-from batched_dataloader import get_batched_dataloader, BatchEnum
+from embedding_inference.model.build import build_model
+from embedding_inference.utils.serialization import save_embedding_inference
+from embedding_inference.batched_dataloader import get_batched_dataloader, BatchEnum
 import numpy as np
+from itertools import islice
 
 class EmbeddingInference:
     def __init__(self, dataset, cfg_path=None, run_id=None):        
@@ -49,7 +50,7 @@ class EmbeddingInference:
     def _run(self, loader, subgroup_name):
         with h5py.File(self.hdf5_out_path, 'a') as h5f:
             with torch.no_grad():
-                for batch_images, batch_i, batch_labels in tqdm(loader):
+                for batch_images, batch_i, batch_labels in tqdm(islice(loader, 300)):
                     images = torch.stack(batch_images).to('cuda')
                     embeddings = self.model(images).cpu().numpy()
                     labels_np = np.array(batch_labels)

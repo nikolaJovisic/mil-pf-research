@@ -41,16 +41,6 @@ def collate(dataset, batch_size):
         if instance_count == 0:
             break  # no more data to yield
 
-        # Pad if needed
-        if instance_count < batch_size:
-            pad_size = batch_size - instance_count
-            feat_dim = x_list[0].size(1) if x_list else 768
-            x_pad = torch.zeros((pad_size, feat_dim))
-            group_pad = torch.full((pad_size,), -1, dtype=torch.long)
-
-            x_list.append(x_pad)
-            group_list.append(group_pad)
-
         x_batch = torch.cat(x_list, dim=0)  # (batch_size, 768)
         group = torch.cat(group_list, dim=0)  # (batch_size,)
         y = torch.stack(y_list) if y_list else torch.empty((0,))
