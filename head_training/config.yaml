@@ -1,6 +1,9 @@
+logs_path: /home/nikola.jovisic.ivi/nj/mammo_filter/logs
+
 valid_size: 0.15
 test_size: 0.15
 pos_weight: 1.5
+use_tiles: False
 
 input_dim: 768
 hidden_dim: 16
@@ -13,5 +16,6 @@ weight_decay: 1e-4
 epochs: 300
 patience: 20
 
+eval_every: 30
 load_path:
 save_path:

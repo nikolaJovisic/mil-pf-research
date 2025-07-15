@@ -14,8 +14,9 @@ class EmbeddingsDataset(Dataset):
         'data/file2.h5': {'pos': [5], 'neg': [2, 4]},
     }
     """
-    def __init__(self, dataset_config, pos_weight=1.0):
+    def __init__(self, dataset_config, use_tiles=False, pos_weight=1.0):
         self.dataset_config = dataset_config
+        self.use_tiles = use_tiles
         self.embeddings = []
         self.labels = []
         self.sample_weights = []
@@ -38,6 +39,11 @@ class EmbeddingsDataset(Dataset):
                 for group_name in f:
                     group = f[group_name]
                     embs = group['images'][()]
+                    
+                    if self.use_tiles and 'tiles' in group:
+                        tile_embs = group['tiles'][()]
+                        embs = np.concatenate([embs, tile_embs], axis=0)
+                    
                     raw_label = int(group['label'][()])
                     local_raw_counts[raw_label] += embs.shape[0]
                     self.total_raw_counts[raw_label] += embs.shape[0]

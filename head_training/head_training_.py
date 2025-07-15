@@ -17,8 +17,9 @@ from model import Aggregation
 from utils.evaluate import evaluate
 from utils.collate import collate
 from model import Head
+import os
 
-def train_head(dataset_config, cfg=None, gpu_id=None, just_evaluate=False):
+def train_head(dataset_config, run_id, cfg=None, gpu_id=None, just_evaluate=False):
     if cfg is None:
         cfg = load_cfg()
         
@@ -27,36 +28,47 @@ def train_head(dataset_config, cfg=None, gpu_id=None, just_evaluate=False):
     if gpu_id is not None:
         torch.cuda.set_device(gpu_id)
         device = f'{device}:{gpu_id}'
-        
-    dataset = EmbeddingsDataset(dataset_config, cfg.pos_weight)
+    
+    log_dir = os.path.join(cfg.logs_path, run_id)
+    os.makedirs(log_dir, exist_ok=True)
+    
+    log_file = os.path.join(log_dir, f"{gpu_id}.csv")
+    config_file = os.path.join(log_dir, f"{gpu_id}.yaml")
+    
+    OmegaConf.save(cfg, config_file)
+    
+    dataset = EmbeddingsDataset(dataset_config, cfg.use_tiles, cfg.pos_weight)
     
     train_ds, valid_ds, test_ds = split(dataset, cfg.valid_size, cfg.test_size, cfg.flatten)
     
-    model = _train(train_ds, valid_ds, cfg, device, just_evaluate)
+    model = _train(train_ds, valid_ds, cfg, device, log_file, just_evaluate)
     return evaluate(model, test_ds, cfg.batch_size, device)
     
         
-def _train(train_dataset, valid_dataset, cfg, device, just_evaluate):
+def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
     model = Head(cfg).to(device)
-    
+
     if cfg.load_path is not None:
         model.load_state_dict(torch.load(cfg.load_path))
         print(f'Model loaded from {cfg.load_path}.')
-    
+
     if just_evaluate:
         if cfg.load_path is None:
             raise ValueError("Cannot evaluate without load_path!")
         return model
-    
+
     optimizer = optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     criterion = nn.BCEWithLogitsLoss(reduction='none')
+
+    with open(log_file, 'w') as f:
+        f.write('epoch,train_loss,val_loss,val_specificity,val_sensitivity\n')
 
     best_val_loss = float('inf')
     patience_counter = 0
 
     for epoch in range(cfg.epochs):
         print('Epoch:', epoch)
-        
+
         model.train()
         train_loss = 0
 
@@ -67,29 +79,36 @@ def _train(train_dataset, valid_dataset, cfg, device, just_evaluate):
             loss = criterion(logits, y)
             loss = (loss * w).mean()
             train_loss += loss.item()
-            
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-                
+
         print('Train loss:', train_loss)
-        
 
         model.eval()
         val_loss = 0
         with torch.no_grad():
             for x, y, w, group in collate(valid_dataset, cfg.batch_size):
                 x, y, w, group = x.to(device), y.to(device), w.to(device), group.to(device)
-                
+
                 logits = model(x, group)
                 loss = criterion(logits, y)
                 loss = (loss * w).mean()
                 val_loss += loss.item()
 
         print('Val loss:', val_loss)
-        
+
+        if (epoch % cfg.eval_every) == 0:
+            specificity, sensitivity = evaluate(model, valid_dataset, cfg.batch_size, device)
+        else:
+            specificity, sensitivity = '', ''
+
+        with open(log_file, 'a') as f:
+            f.write(f'{epoch},{train_loss},{val_loss},{specificity},{sensitivity}\n')
+
         if val_loss < best_val_loss:
-            best_val_loss = val_loss 
+            best_val_loss = val_loss
             best_model_state = model.state_dict()
             patience_counter = 0
         else:
@@ -100,9 +119,10 @@ def _train(train_dataset, valid_dataset, cfg, device, just_evaluate):
     if cfg.save_path is not None:
         torch.save(best_model_state, cfg.save_path)
         print(f'Model saved to {cfg.save_path}.')
-        
+
     model.load_state_dict(best_model_state)
     return model
+
 
 def load_cfg(cfg_path=None):
     if cfg_path is None:

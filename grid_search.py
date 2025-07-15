@@ -2,6 +2,7 @@ import csv
 import itertools
 import multiprocessing as mp
 from datasets_shim import *
+import uuid
 
 def get_path(dataset):
     return f'/home/nikola.jovisic.ivi/nj/lustre_mock/{dataset}/embeddings.hdf5'
@@ -11,9 +12,9 @@ embed_cfg = {
 }
 
 param_grid = {
-    'flatten': [True, False],
-    'aggregation': [Aggregation.ATTENTION, Aggregation.MAX, Aggregation.MEAN],
-    'hidden_dim': [8, 16, 32],
+#     'pos_weight': [1.0, 1.5],
+#     'aggregation': [Aggregation.ATTENTION], #, Aggregation.MAX, Aggregation.MEAN],
+    'hidden_dim': [64, 128, 256, 512, 768, 1024],
 }
 
 def set_nested_attr(obj, key_path, value):
@@ -22,7 +23,7 @@ def set_nested_attr(obj, key_path, value):
         obj = getattr(obj, k)
     setattr(obj, keys[-1], value)
 
-def run_training(param_list, gpu_id):
+def run_training(param_list, gpu_id, run_id):
     import torch
     torch.cuda.set_device(gpu_id)
 
@@ -49,8 +50,9 @@ def run_training(param_list, gpu_id):
 
         specificity, sensitivity = train_head(
             embed_cfg,
+            run_id,
             cfg,
-            gpu_id
+            gpu_id,
         )
 
         with open(output_file, mode='a', newline='') as file:
@@ -62,6 +64,8 @@ def run_training(param_list, gpu_id):
             writer.writerow(row)
 
 if __name__ == "__main__":
+    run_id = str(uuid.uuid4())[:8]
+    
     mp.set_start_method('spawn', force=True)
 
     all_combinations = list(itertools.product(*param_grid.values()))
@@ -69,13 +73,24 @@ if __name__ == "__main__":
     param_dicts = [dict(zip(keys, combo)) for combo in all_combinations]
 
     num_gpus = 6
-    chunks = [[] for _ in range(num_gpus)]
-    for i, combo in enumerate(param_dicts):
-        chunks[i % num_gpus].append(combo)
+    
+    def split_balanced(items, num_splits):
+        avg = len(items) / float(num_splits)
+        out = []
+        last = 0.0
+
+        while last < len(items):
+            out.append(items[int(last):int(last + avg)])
+            last += avg
+
+        return out
+
+    chunks = split_balanced(param_dicts, num_gpus)
+
 
     processes = []
     for gpu_id, param_list in enumerate(chunks):
-        p = mp.Process(target=run_training, args=(param_list, gpu_id))
+        p = mp.Process(target=run_training, args=(param_list, gpu_id, run_id))
         p.start()
         processes.append(p)
 
