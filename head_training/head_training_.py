@@ -49,8 +49,12 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
     model = Head(cfg).to(device)
 
     if cfg.load_path is not None:
-        model.load_state_dict(torch.load(cfg.load_path))
+        model.load_state_dict(torch.load(cfg.load_path), strict=False)
         print(f'Model loaded from {cfg.load_path}.')
+        
+        if cfg.freeze_whole_image_branch:
+            model.freeze_whole_image_branch()
+            print(f'Whole image branch freezed.')
 
     if just_evaluate:
         if cfg.load_path is None:
@@ -72,10 +76,10 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
         model.train()
         train_loss = 0
 
-        for x, y, w, group in collate(train_dataset, cfg.batch_size):
-            x, y, w, group = x.to(device), y.to(device), w.to(device), group.to(device)
+        for x, y, w, group, instance_type in collate(train_dataset, cfg.batch_size):
+            x, y, w, group, instance_type = x.to(device), y.to(device), w.to(device), group.to(device), instance_type.to(device)
 
-            logits = model(x, group)
+            logits = model(x, group, instance_type)
             loss = criterion(logits, y)
             loss = (loss * w).mean()
             train_loss += loss.item()
@@ -89,10 +93,10 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
         model.eval()
         val_loss = 0
         with torch.no_grad():
-            for x, y, w, group in collate(valid_dataset, cfg.batch_size):
-                x, y, w, group = x.to(device), y.to(device), w.to(device), group.to(device)
+            for x, y, w, group, instance_type in collate(valid_dataset, cfg.batch_size):
+                x, y, w, group, instance_type = x.to(device), y.to(device), w.to(device), group.to(device), instance_type.to(device)
 
-                logits = model(x, group)
+                logits = model(x, group, instance_type)
                 loss = criterion(logits, y)
                 loss = (loss * w).mean()
                 val_loss += loss.item()

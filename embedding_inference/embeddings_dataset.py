@@ -21,6 +21,7 @@ class EmbeddingsDataset(Dataset):
         self.labels = []
         self.sample_weights = []
         self.group_indices = []
+        self.instance_types = []
         self.class_counts = defaultdict(int)
         self.dataset_class_counts = {}
         self.dataset_raw_counts = {}
@@ -39,11 +40,14 @@ class EmbeddingsDataset(Dataset):
                 for group_name in f:
                     group = f[group_name]
                     embs = group['images'][()]
-                    
+                    types = np.zeros((embs.shape[0],), dtype=np.int64)
+
                     if self.use_tiles and 'tiles' in group:
                         tile_embs = group['tiles'][()]
+                        tile_types = np.ones((tile_embs.shape[0],), dtype=np.int64)
                         embs = np.concatenate([embs, tile_embs], axis=0)
-                    
+                        types = np.concatenate([types, tile_types], axis=0)
+
                     raw_label = int(group['label'][()])
                     local_raw_counts[raw_label] += embs.shape[0]
                     self.total_raw_counts[raw_label] += embs.shape[0]
@@ -56,6 +60,7 @@ class EmbeddingsDataset(Dataset):
                         continue
 
                     self.embeddings.append(embs)
+                    self.instance_types.append(types)
                     self.labels.append(label)
                     self.sample_weights.append(embs.shape[0])
                     self.group_indices.append((group_start_idx, group_start_idx + embs.shape[0]))
@@ -77,8 +82,9 @@ class EmbeddingsDataset(Dataset):
 
         embs_np = np.concatenate(self.embeddings)
         embs_tensor = torch.tensor(embs_np, dtype=torch.float32)
-        
         self.embeddings = torch.nn.functional.normalize(embs_tensor, p=2, dim=1)
+
+        self.instance_types = torch.tensor(np.concatenate(self.instance_types), dtype=torch.int64)
         self.labels = torch.tensor(self.labels, dtype=torch.float32).unsqueeze(1)
         self.sample_weights = self._compute_sample_weights(pos_weight)
 
@@ -101,4 +107,14 @@ class EmbeddingsDataset(Dataset):
     def __getitem__(self, idx):
         start, end = self.group_indices[idx]
         group = self.embeddings[start:end]
-        return group, self.labels[idx], self.sample_weights[idx]
+        instance_type = self.instance_types[start:end]
+
+        if self.use_tiles and not (instance_type == 1).any():
+            # Add one fake tile: 768-d zero vector
+            zero_tile = torch.zeros((1, group.size(1)), dtype=group.dtype)
+            group = torch.cat([group, zero_tile], dim=0)
+
+            tile_type = torch.tensor([1], dtype=instance_type.dtype)
+            instance_type = torch.cat([instance_type, tile_type], dim=0)
+
+        return group, self.labels[idx], self.sample_weights[idx], instance_type
