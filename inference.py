@@ -23,5 +23,5 @@ specificity, sensitivity = train_head(embed_cfg, run_id, cfg)
 
 with open('results.csv', mode='w', newline='') as file:
     writer = csv.writer(file)
-    writer.writerow(['hidden_dim', 'specificity', 'sensitivity'])
-    writer.writerow([cfg.hidden_dim, specificity, sensitivity])
+    writer.writerow(['specificity', 'sensitivity'])
+    writer.writerow([specificity, sensitivity])

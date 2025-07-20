@@ -4,7 +4,7 @@ model:
   patch_size: 14
   drop_path_rate: 0.0
   ffn_layer: mlp
-  weights:  /lustre/mammo-filter/weights/dinov2_vitb14_reg4_pretrain.pth  #/home/nikola.jovisic.ivi/nj/mama-encoder/mama_embed_pretrained_40k_steps_last_dinov2_vit_ckpt.pth
+  weights: /lustre/mammo-filter/weights/dinov2_vitb14_reg4_pretrain.pth
   layerscale: 1.0e-05
   block_chunks: 0
   qkv_bias: true

@@ -3,19 +3,27 @@ import itertools
 import multiprocessing as mp
 from datasets_shim import *
 import uuid
+import os
+import argparse
 
-def get_path(dataset):
-    return f'/home/nikola.jovisic.ivi/nj/lustre_mock/{dataset}/embeddings.hdf5'
+def get_dataset_cfg(embedding_id):
+    
+    def get_path(split):
+        return f'/home/nikola.jovisic.ivi/nj/lustre_mock/embed-{embedding_id}-{split}/embeddings.hdf5'
 
-embed_cfg = {
-    get_path('embed'): {'pos': [5, 4], 'neg': [1]},
-}
+    labels = {'pos': [4, 5, 6], 'neg': [1]}
 
-param_grid = {
-#     'pos_weight': [1.0, 1.5],
-#     'aggregation': [Aggregation.ATTENTION], #, Aggregation.MAX, Aggregation.MEAN],
-    'hidden_dim': [64, 128, 256, 512, 768, 1024],
-}
+    return {
+        'train': {get_path('train'): labels},
+        'valid': {get_path('valid'): labels},
+        'test': {get_path('test'): labels}
+    }
+
+def get_param_grid():
+    return {
+        'pos_weight': [1.0, 1.5],
+        'hidden_dim': [64, 128, 256],
+    }
 
 def set_nested_attr(obj, key_path, value):
     keys = key_path.split('.')
@@ -23,7 +31,7 @@ def set_nested_attr(obj, key_path, value):
         obj = getattr(obj, k)
     setattr(obj, keys[-1], value)
 
-def run_training(param_list, gpu_id, run_id):
+def run_training(param_grid, param_list, gpu_id, run_id, embedding_id):
     import torch
     torch.cuda.set_device(gpu_id)
 
@@ -35,12 +43,16 @@ def run_training(param_list, gpu_id, run_id):
         }
         print(f"  [{idx}] {formatted}")
 
-    output_file = f"results_gpu{gpu_id}.csv"
+    
+    output_file = f"results/{embedding_id}/{run_id}/results_gpu{gpu_id}.csv"
+    
     with open(output_file, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(list(param_grid.keys()) + ['specificity', 'sensitivity'])
+        writer.writerow(['embedding_id', 'run_id', 'param_combo_id'] + list(param_grid.keys()) + ['specificity', 'sensitivity'])
 
     for param_combination in param_list:
+        param_combo_id = str(uuid.uuid4())[:8]
+
         cfg = load_cfg()
         for key_path, value in param_combination.items():
             set_nested_attr(cfg, key_path, value)
@@ -49,50 +61,62 @@ def run_training(param_list, gpu_id, run_id):
             continue
 
         specificity, sensitivity = train_head(
-            embed_cfg,
-            run_id,
+            get_dataset_cfg(embedding_id),
+            param_combo_id,
             cfg,
             gpu_id,
         )
 
         with open(output_file, mode='a', newline='') as file:
             writer = csv.writer(file)
-            row = [
+            row = [embedding_id, run_id, param_combo_id] + [
                 val.name if hasattr(val, 'name') else val
                 for val in param_combination.values()
             ] + [specificity, sensitivity]
             writer.writerow(row)
 
-if __name__ == "__main__":
+
+def split_balanced(items, num_splits):
+    avg = len(items) / float(num_splits)
+    out = []
+    last = 0.0
+
+    while last < len(items):
+        out.append(items[int(last):int(last + avg)])
+        last += avg
+
+    return out
+
+def run_distributed_training(embedding_id, num_gpus):
     run_id = str(uuid.uuid4())[:8]
+    os.makedirs(f"results/{embedding_id}/{run_id}/", exist_ok=True)
     
+    param_grid = get_param_grid()
+
     mp.set_start_method('spawn', force=True)
 
     all_combinations = list(itertools.product(*param_grid.values()))
     keys = list(param_grid.keys())
     param_dicts = [dict(zip(keys, combo)) for combo in all_combinations]
 
-    num_gpus = 6
-    
-    def split_balanced(items, num_splits):
-        avg = len(items) / float(num_splits)
-        out = []
-        last = 0.0
-
-        while last < len(items):
-            out.append(items[int(last):int(last + avg)])
-            last += avg
-
-        return out
-
     chunks = split_balanced(param_dicts, num_gpus)
-
 
     processes = []
     for gpu_id, param_list in enumerate(chunks):
-        p = mp.Process(target=run_training, args=(param_list, gpu_id, run_id))
+        p = mp.Process(target=run_training, args=(param_grid, param_list, gpu_id, run_id, embedding_id))
         p.start()
         processes.append(p)
 
     for p in processes:
         p.join()
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--embedding-id', type=str, required=True)
+    parser.add_argument('--num-gpus', type=int, default=1)
+    args = parser.parse_args()
+
+    run_distributed_training(args.embedding_id, args.num_gpus)
+
+if __name__ == "__main__":
+    main()

@@ -1,5 +1,9 @@
 import sys
 from pathlib import Path
+import warnings
+
+warnings.filterwarnings("ignore", message=".*Reliance on distutils from stdlib is deprecated.*")
+warnings.filterwarnings("ignore", message="xFormers is available.*")
 
 repos_dir = "/home/nikola.jovisic.ivi/nj/"
 

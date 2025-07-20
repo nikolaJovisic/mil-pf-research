@@ -13,18 +13,17 @@ import numpy as np
 from itertools import islice
 
 class EmbeddingInference:
-    def __init__(self, dataset, cfg_path=None, run_id=None):        
-        
-        if cfg_path is None:
+    def __init__(self, dataset, cfg=None, device='cuda'):        
+        if cfg is None:
             cfg_path = Path(__file__).parent / "config.yaml"
+            self.cfg = OmegaConf.load(cfg_path)
+        else:
+            self.cfg = cfg
         
-        if run_id is None:
-            run_id = str(uuid.uuid4())[:8]
-
-        self.cfg = OmegaConf.load(cfg_path)
+        self.device = device
         self.model = self._build_model()
         self.dataset = dataset
-        self.output_dir = os.path.join(self.cfg.embeddings_root, run_id)
+        self.output_dir = os.path.join(self.cfg.embeddings_root, self.cfg.run_name)
         os.makedirs(self.output_dir, exist_ok=True)
         self.hdf5_out_path = os.path.join(self.output_dir, 'embeddings.hdf5')
         save_embedding_inference(self, os.path.join(self.output_dir, 'config.yaml'))
@@ -50,8 +49,8 @@ class EmbeddingInference:
     def _run(self, loader, subgroup_name):
         with h5py.File(self.hdf5_out_path, 'a') as h5f:
             with torch.no_grad():
-                for batch_images, batch_i, batch_labels in tqdm(islice(loader, 300)):
-                    images = torch.stack(batch_images).to('cuda')
+                for batch_images, batch_i, batch_labels in loader:
+                    images = torch.stack(batch_images).to(self.device)
                     embeddings = self.model(images).cpu().numpy()
                     labels_np = np.array(batch_labels)
                     indices = np.array(batch_i)
@@ -96,7 +95,7 @@ class EmbeddingInference:
         model = build_model(self.cfg.model)
         state_dict = torch.load(self.cfg.model.weights, map_location="cpu")
         model.load_state_dict(state_dict)
-        model.eval().to('cuda')
+        model.eval().to(self.device)
         return model
     
     def _check_img_size_match():

@@ -1,7 +1,5 @@
-logs_path: /home/nikola.jovisic.ivi/nj/mammo_filter/logs
+logs_path: /home/nikola.jovisic.ivi/nj/mammo_filter/head_logs
 
-valid_size: 0.15
-test_size: 0.15
 pos_weight: 1.5
 use_tiles: true
 

@@ -12,14 +12,14 @@ import random
 from omegaconf import OmegaConf
 from pathlib import Path
 from embedding_inference import EmbeddingsDataset
-from utils.split import split
+from utils.flatten_group import FlattenGroup
 from model import Aggregation
 from utils.evaluate import evaluate
 from utils.collate import collate
 from model import Head
 import os
 
-def train_head(dataset_config, run_id, cfg=None, gpu_id=None, just_evaluate=False):
+def train_head(dataset_cfg, run_id, cfg=None, gpu_id=None, just_evaluate=False):
     if cfg is None:
         cfg = load_cfg()
         
@@ -37,9 +37,13 @@ def train_head(dataset_config, run_id, cfg=None, gpu_id=None, just_evaluate=Fals
     
     OmegaConf.save(cfg, config_file)
     
-    dataset = EmbeddingsDataset(dataset_config, cfg.use_tiles, cfg.pos_weight)
+    train_ds = EmbeddingsDataset(dataset_cfg['train'], cfg.use_tiles, cfg.pos_weight)
+    valid_ds = EmbeddingsDataset(dataset_cfg['valid'], cfg.use_tiles, cfg.pos_weight)
+    test_ds = EmbeddingsDataset(dataset_cfg['test'], cfg.use_tiles, cfg.pos_weight)
     
-    train_ds, valid_ds, test_ds = split(dataset, cfg.valid_size, cfg.test_size, cfg.flatten)
+    if cfg.flatten:
+        train_ds = FlattenGroup(train_ds)
+        valid_ds = FlattenGroup(valid_ds)
     
     model = _train(train_ds, valid_ds, cfg, device, log_file, just_evaluate)
     return evaluate(model, test_ds, cfg.batch_size, device)
