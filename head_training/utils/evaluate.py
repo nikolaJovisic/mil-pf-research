@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.metrics import confusion_matrix
 from model import Aggregation
 from utils.collate import collate
+from utils.evaluation_report import EvaluationReport
 
 def evaluate(model, dataset, batch_size, device='cuda'):
     dataset = collate(dataset, batch_size)
@@ -21,19 +22,9 @@ def evaluate(model, dataset, batch_size, device='cuda'):
 
     logits = torch.cat(all_logits).squeeze(1)
     labels = torch.cat(all_labels).squeeze(1)
+    probs = torch.sigmoid(logits)
 
-    probs = torch.sigmoid(logits).numpy()
-    preds = (probs > 0.5).astype(int)
-    targets = labels.numpy().astype(int)
-    
-    targets = np.concatenate([targets, [0, 1]])
-    preds = np.concatenate([preds, [0, 1]])
-
-    cm = confusion_matrix(targets, preds)
-    row_sums = cm.sum(axis=1, keepdims=True)
-    balanced_cm = cm / row_sums
-
-    return tuple(np.diag(balanced_cm))
+    return EvaluationReport(probs, labels)
 
 
     

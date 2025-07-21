@@ -102,7 +102,8 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
                 val_loss += loss.item()
 
         if (epoch % cfg.eval_every) == 0:
-            specificity, sensitivity = evaluate(model, valid_dataset, cfg.batch_size, device)
+            report = evaluate(model, valid_dataset, cfg.batch_size, device)
+            specificity, sensitivity = report.specificity(0.5), report.sensitivity(0.5)
         else:
             specificity, sensitivity = '', ''
 
