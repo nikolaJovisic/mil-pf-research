@@ -55,7 +55,7 @@ def run_embedding_pipeline(use_imagenet=False, weights=None, description=None, g
     for split in ['train', 'valid', 'test']:
         run(split, weights_path, convert_to, gpu_id, run_name_prefix, run_description)
 
-    return embedding_id
+    print(embedding_id)
 
 
 def main():

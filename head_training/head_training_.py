@@ -75,8 +75,6 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
     patience_counter = 0
 
     for epoch in range(cfg.epochs):
-        print('Epoch:', epoch)
-
         model.train()
         train_loss = 0
 
@@ -92,8 +90,6 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
             loss.backward()
             optimizer.step()
 
-        print('Train loss:', train_loss)
-
         model.eval()
         val_loss = 0
         with torch.no_grad():
@@ -104,8 +100,6 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
                 loss = criterion(logits, y)
                 loss = (loss * w).mean()
                 val_loss += loss.item()
-
-        print('Val loss:', val_loss)
 
         if (epoch % cfg.eval_every) == 0:
             specificity, sensitivity = evaluate(model, valid_dataset, cfg.batch_size, device)

@@ -25,11 +25,15 @@ def evaluate(model, dataset, batch_size, device='cuda'):
     probs = torch.sigmoid(logits).numpy()
     preds = (probs > 0.5).astype(int)
     targets = labels.numpy().astype(int)
+    
+    targets = np.concatenate([targets, [0, 1]])
+    preds = np.concatenate([preds, [0, 1]])
 
     cm = confusion_matrix(targets, preds)
     row_sums = cm.sum(axis=1, keepdims=True)
     balanced_cm = cm / row_sums
 
-    return np.diag(balanced_cm)
+    return tuple(np.diag(balanced_cm))
+
 
     

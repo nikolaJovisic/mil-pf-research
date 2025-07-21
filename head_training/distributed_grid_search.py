@@ -1,10 +1,17 @@
 import csv
 import itertools
 import multiprocessing as mp
-from datasets_shim import *
 import uuid
 import os
 import argparse
+import torch
+import sys
+
+sys.path.append('..')
+
+from datasets_shim import *
+from mammo_filter.head_training import train_head, load_cfg, Aggregation 
+# needed because stupid python doesn't know how to import when multiprocessing, even though its imported through shim
 
 def get_dataset_cfg(embedding_id):
     
@@ -22,7 +29,7 @@ def get_dataset_cfg(embedding_id):
 def get_param_grid():
     return {
         'pos_weight': [1.0, 1.5],
-        'hidden_dim': [64, 128, 256],
+        'hidden_dim': [16],
     }
 
 def set_nested_attr(obj, key_path, value):
@@ -31,7 +38,7 @@ def set_nested_attr(obj, key_path, value):
         obj = getattr(obj, k)
     setattr(obj, keys[-1], value)
 
-def run_training(param_grid, param_list, gpu_id, run_id, embedding_id):
+def run_training(param_grid, param_list, gpu_id, embedding_id, save_dir):
     import torch
     torch.cuda.set_device(gpu_id)
 
@@ -44,11 +51,11 @@ def run_training(param_grid, param_list, gpu_id, run_id, embedding_id):
         print(f"  [{idx}] {formatted}")
 
     
-    output_file = f"results/{embedding_id}/{run_id}/results_gpu{gpu_id}.csv"
+    output_file = f"{save_dir}/results_gpu{gpu_id}.csv"
     
     with open(output_file, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['embedding_id', 'run_id', 'param_combo_id'] + list(param_grid.keys()) + ['specificity', 'sensitivity'])
+        writer.writerow(['embedding_id', 'param_combo_id'] + list(param_grid.keys()) + ['specificity', 'sensitivity'])
 
     for param_combination in param_list:
         param_combo_id = str(uuid.uuid4())[:8]
@@ -69,7 +76,7 @@ def run_training(param_grid, param_list, gpu_id, run_id, embedding_id):
 
         with open(output_file, mode='a', newline='') as file:
             writer = csv.writer(file)
-            row = [embedding_id, run_id, param_combo_id] + [
+            row = [embedding_id, param_combo_id] + [
                 val.name if hasattr(val, 'name') else val
                 for val in param_combination.values()
             ] + [specificity, sensitivity]
@@ -87,9 +94,11 @@ def split_balanced(items, num_splits):
 
     return out
 
-def run_distributed_training(embedding_id, num_gpus):
-    run_id = str(uuid.uuid4())[:8]
-    os.makedirs(f"results/{embedding_id}/{run_id}/", exist_ok=True)
+def run_distributed_training(embedding_id, model_id, results_dir):
+    num_gpus = torch.cuda.device_count()
+    
+    save_dir = f"{results_dir}/{model_id}/"
+    os.makedirs(save_dir, exist_ok=True)
     
     param_grid = get_param_grid()
 
@@ -103,7 +112,7 @@ def run_distributed_training(embedding_id, num_gpus):
 
     processes = []
     for gpu_id, param_list in enumerate(chunks):
-        p = mp.Process(target=run_training, args=(param_grid, param_list, gpu_id, run_id, embedding_id))
+        p = mp.Process(target=run_training, args=(param_grid, param_list, gpu_id, embedding_id, save_dir))
         p.start()
         processes.append(p)
 
@@ -113,10 +122,11 @@ def run_distributed_training(embedding_id, num_gpus):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--embedding-id', type=str, required=True)
-    parser.add_argument('--num-gpus', type=int, default=1)
+    parser.add_argument('--model-id', type=str, required=True)
+    parser.add_argument('--results-dir', type=str, required=True)
     args = parser.parse_args()
 
-    run_distributed_training(args.embedding_id, args.num_gpus)
+    run_distributed_training(args.embedding_id, args.model_id, args.results_dir)
 
 if __name__ == "__main__":
     main()
