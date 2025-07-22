@@ -5,6 +5,7 @@ class FlattenGroup(IterableDataset):
         self.dataset = groupwise_dataset
 
     def __iter__(self):
-        for group, label, weight in self.dataset:
+        for item in self.dataset:
+            group, *rest = item
             for i in range(group.size(0)):
-                yield group[i].unsqueeze(0), label, weight
+                yield (group[i].unsqueeze(0), *rest)

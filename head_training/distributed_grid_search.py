@@ -29,7 +29,9 @@ def get_dataset_cfg(embedding_id):
 def get_param_grid():
     return {
         'pos_weight': [1.0, 1.5],
-        'hidden_dim': [16],
+        'hidden_dim': [8, 16, 32, 64, 128],
+        'aggregation': [Aggregation.ATTENTION, Aggregation.MAX, Aggregation.MEAN],
+        'flatten': [True, False]
     }
 
 def set_nested_attr(obj, key_path, value):

@@ -13,8 +13,8 @@ freeze_whole_image_branch: false
 batch_size: 512
 lr: 0.02
 weight_decay: 1e-4
-epochs: 300
-patience: 20
+epochs: 500
+patience: 50
 
 eval_every: 30
 load_path: 

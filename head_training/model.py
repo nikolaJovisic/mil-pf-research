@@ -20,6 +20,9 @@ class Head(nn.Module):
         self.aggregation = cfg.aggregation
 
         self.tile_mode = cfg.use_tiles
+        
+        self.attention_V = None
+        self.attention_w = None
 
         if self.aggregation == Aggregation.ATTENTION:
             self.attention_V = nn.Linear(cfg.hidden_dim, cfg.hidden_dim)
