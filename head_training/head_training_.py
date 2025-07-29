@@ -81,7 +81,7 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
         for x, y, w, group, instance_type in collate(train_dataset, cfg.batch_size):
             x, y, w, group, instance_type = x.to(device), y.to(device), w.to(device), group.to(device), instance_type.to(device)
 
-            logits = model(x, group, instance_type)
+            logits = model(x, group)
             loss = criterion(logits, y)
             loss = (loss * w).mean()
             train_loss += loss.item()
@@ -96,7 +96,7 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
             for x, y, w, group, instance_type in collate(valid_dataset, cfg.batch_size):
                 x, y, w, group, instance_type = x.to(device), y.to(device), w.to(device), group.to(device), instance_type.to(device)
 
-                logits = model(x, group, instance_type)
+                logits = model(x, group)
                 loss = criterion(logits, y)
                 loss = (loss * w).mean()
                 val_loss += loss.item()
