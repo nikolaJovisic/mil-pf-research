@@ -8,7 +8,11 @@ from datetime import timedelta
 from extract_backbone import extract_backbone
 from orchestrator import orchestrate_embeddings_and_training
 
-CHECKPOINTS_DIR = '/home/nikola.jovisic.ivi/nj/dinov2/outputs'
+import sys
+sys.path.append('..')
+from shim import *
+
+CHECKPOINTS_DIR = f'{REPOS_DIR}/dinov2/outputs'
 DESCRIPTION = 'Initial DINO orchestration.'
 
 def setup_logger(log_path):
@@ -116,7 +120,7 @@ def train_on_new_backbones(models_dir, trained_log, log_path, results_dir, logge
 
 def loop_extract_and_train():
     daemon_id = str(uuid.uuid4())[:8]
-    run_dir = f'/home/nikola.jovisic.ivi/nj/mammo_filter/orchestration/runs/{daemon_id}'
+    run_dir = f'{REPOS_DIR}/mammo_filter/orchestration/runs/{daemon_id}'
     os.makedirs(run_dir)
 
     extracted_log = os.path.join(run_dir, 'processed_backbones.log')

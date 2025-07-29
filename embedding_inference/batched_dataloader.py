@@ -1,7 +1,7 @@
 from torch.utils.data import IterableDataset, DataLoader, get_worker_info
 from enum import Enum, auto
 
-from datasets_shim import *
+from shim import *
 
 class BatchEnum(Enum):
     IMAGE = auto()

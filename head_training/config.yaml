@@ -1,4 +1,4 @@
-logs_path: /home/nikola.jovisic.ivi/nj/mammo_filter/head_training/logs
+logs_path: head_training/logs
 
 pos_weight: 1.5
 use_tiles: false
