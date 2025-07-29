@@ -1,16 +1,16 @@
 import argparse
 import sys
 import uuid
+from shim import *
 
-sys.path.append('/home/nikola.jovisic.ivi/nj/mammo_filter/')
+sys.path.append(f'{REPOS_DIR}/mammo_filter/')
 
-from datasets_shim import *
 from embedding_inference import EmbeddingInference
 from omegaconf import OmegaConf
 
 
-def get_cfg():
-    cfg_path = '/home/nikola.jovisic.ivi/nj/mammo_filter/embedding_inference/config.yaml'
+def get_embedding_cfg():
+    cfg_path = f'{REPOS_DIR}/mammo_filter/embedding_inference/config.yaml'
     return OmegaConf.load(cfg_path)
 
 
@@ -23,8 +23,9 @@ def run(split, weights_path, convert_to, gpu_id, run_name_prefix, description):
         split=split,
         **args
     )
-    cfg = get_cfg()
-    cfg.model.weights = weights_path
+    cfg = get_embedding_cfg()
+    if weights_path is not None:
+        cfg.model.weights = weights_path
     cfg.run_name = f'{run_name_prefix}-{split}'
     cfg.run_description = description
     inference = EmbeddingInference(ds, cfg, gpu_id)
@@ -40,7 +41,7 @@ def run_embedding_pipeline(use_imagenet=False, weights=None, description=None, g
         gpu_id = f'cuda:{gpu}'
 
     if use_imagenet:
-        weights_path = '/lustre/mammo-filter/weights/dinov2_vitb14_reg4_pretrain.pth'
+        weights_path = None
         convert_to = ConvertTo.RGB_TENSOR_IMGNET_NORM
         run_name_prefix = f'embed-{embedding_id}'
         run_description = 'EMBED dataset according to csv split, imagenet pretrained model.'

@@ -1,6 +1,8 @@
 import sys
 
 sys.path.append('../embedding_inference')
+sys.path.append('..')
+from shim import *
 
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset, DataLoader
@@ -29,7 +31,7 @@ def train_head(dataset_cfg, run_id, cfg=None, gpu_id=None, just_evaluate=False):
         torch.cuda.set_device(gpu_id)
         device = f'{device}:{gpu_id}'
     
-    log_dir = os.path.join(cfg.logs_path, run_id)
+    log_dir = os.path.join(REPOS_DIR, cfg.logs_path, run_id)
     os.makedirs(log_dir, exist_ok=True)
     
     log_file = os.path.join(log_dir, f"{gpu_id}.csv")

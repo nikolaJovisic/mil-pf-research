@@ -9,14 +9,16 @@ import sys
 
 sys.path.append('..')
 
-from datasets_shim import *
+from shim import *
 from mammo_filter.head_training import train_head, load_cfg, Aggregation 
+from mammo_filter.embedding_inference import get_embedding_cfg
 # needed because stupid python doesn't know how to import when multiprocessing, even though its imported through shim
 
 def get_dataset_cfg(embedding_id):
-    
+    embeddings_root = get_embedding_cfg().embeddings_root
+
     def get_path(split):
-        return f'/home/nikola.jovisic.ivi/nj/lustre_mock/embed-{embedding_id}-{split}/embeddings.hdf5'
+        return f'{embeddings_root}/embed-{embedding_id}-{split}/embeddings.hdf5'
 
     labels = {'pos': [4, 5, 6], 'neg': [1]}
 
