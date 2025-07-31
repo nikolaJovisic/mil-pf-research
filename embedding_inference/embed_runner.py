@@ -1,10 +1,10 @@
 import argparse
 import sys
 import uuid
+
+sys.path.append('..')
+
 from shim import *
-
-sys.path.append(f'{REPOS_DIR}/mammo_filter/')
-
 from embedding_inference import EmbeddingInference
 from omegaconf import OmegaConf
 
@@ -15,7 +15,7 @@ def get_embedding_cfg():
 
 
 def run(split, weights_path, convert_to, gpu_id, run_name_prefix, description):
-    args = {'return_mode': ReturnMode.BREAST_TILES_LABEL, 'tile_size': 4096, 'final_resize': 518}
+    args = {'return_mode': ReturnMode.BREAST_TILES_LABEL, 'tile_size': 1024, 'final_resize': 518}
     ds = MammoDataset(
         DatasetEnum.EMBED,
         labels=[1, 4, 5, 6],
@@ -30,10 +30,13 @@ def run(split, weights_path, convert_to, gpu_id, run_name_prefix, description):
     cfg.run_description = description
     inference = EmbeddingInference(ds, cfg, gpu_id)
     inference.run_images()
+    inference.run_tiles()
 
 
 def run_embedding_pipeline(use_imagenet=False, weights=None, description=None, gpu=None):
-    embedding_id = str(uuid.uuid4())[:8]
+    embedding_id = 'imagenet' #str(uuid.uuid4())[:8]
+    dataset_id = 'embed'
+    run_name_prefix = f'{dataset_id}-{embedding_id}'
 
     if gpu is None:
         gpu_id = 'cuda'
@@ -43,14 +46,12 @@ def run_embedding_pipeline(use_imagenet=False, weights=None, description=None, g
     if use_imagenet:
         weights_path = None
         convert_to = ConvertTo.RGB_TENSOR_IMGNET_NORM
-        run_name_prefix = f'embed-{embedding_id}'
         run_description = 'EMBED dataset according to csv split, imagenet pretrained model.'
     else:
         if not weights or not description:
             raise ValueError("Both weights and description must be provided when not using ImageNet weights.")
         weights_path = weights
         convert_to = ConvertTo.RGB_TENSOR_NORM
-        run_name_prefix = f'embed-{embedding_id}'
         run_description = description
 
     for split in ['train', 'valid', 'test']:

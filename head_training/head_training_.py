@@ -14,11 +14,11 @@ import random
 from omegaconf import OmegaConf
 from pathlib import Path
 from embedding_inference import EmbeddingsDataset
-from utils.flatten_group import FlattenGroup
-from model import Aggregation
-from utils.evaluate import evaluate
-from utils.collate import collate
-from model import Head
+from head_training.utils.flatten_group import FlattenGroup
+from head_training.model import Aggregation
+from head_training.utils.evaluate import evaluate
+from head_training.utils.collate import collate
+from head_training.model import build_model
 import os
 
 def train_head(dataset_cfg, run_id, cfg=None, gpu_id=None, just_evaluate=False):
@@ -52,7 +52,7 @@ def train_head(dataset_cfg, run_id, cfg=None, gpu_id=None, just_evaluate=False):
     
         
 def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
-    model = Head(cfg).to(device)
+    model = build_model(cfg, device)
 
     if cfg.load_path is not None:
         model.load_state_dict(torch.load(cfg.load_path), strict=False)
@@ -83,7 +83,7 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
         for x, y, w, group, instance_type in collate(train_dataset, cfg.batch_size):
             x, y, w, group, instance_type = x.to(device), y.to(device), w.to(device), group.to(device), instance_type.to(device)
 
-            logits = model(x, group)
+            logits = model(x, group, instance_type)
             loss = criterion(logits, y)
             loss = (loss * w).mean()
             train_loss += loss.item()
@@ -98,7 +98,7 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
             for x, y, w, group, instance_type in collate(valid_dataset, cfg.batch_size):
                 x, y, w, group, instance_type = x.to(device), y.to(device), w.to(device), group.to(device), instance_type.to(device)
 
-                logits = model(x, group)
+                logits = model(x, group, instance_type)
                 loss = criterion(logits, y)
                 loss = (loss * w).mean()
                 val_loss += loss.item()

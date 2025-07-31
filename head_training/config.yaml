@@ -1,20 +1,27 @@
-logs_path: head_training/logs
+logs_path: mammo_filter/head_training/logs
 
-pos_weight: 1.5
-use_tiles: false
+pos_weight: 1.0
+
+model_type: perceiver
+use_tiles: true
+
+use_shared_projector: true
+fusion_mode: cross-attention
+layer_norm: true
 
 input_dim: 768
-hidden_dim: 64
-aggregation: attention
+prehidden_dim: 32
+hidden_dim: 16
+aggregation: max
 flatten: false
 
 freeze_whole_image_branch: false
 
-batch_size: 512
+batch_size: 2e14
 lr: 0.02
 weight_decay: 1e-4
 epochs: 500
-patience: 50
+patience: 20
 
 eval_every: 30
 load_path: 

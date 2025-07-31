@@ -1,9 +1,9 @@
 import torch
 import numpy as np
 from sklearn.metrics import confusion_matrix
-from model import Aggregation
-from utils.collate import collate
-from utils.evaluation_report import EvaluationReport
+from head_training.model import Aggregation
+from head_training.utils.collate import collate
+from head_training.utils.evaluation_report import EvaluationReport
 
 def evaluate(model, dataset, batch_size, device='cuda'):
     dataset = collate(dataset, batch_size)
@@ -13,7 +13,7 @@ def evaluate(model, dataset, batch_size, device='cuda'):
 
     with torch.no_grad():
         for x, y, _, group, instance_type in dataset:
-            x, group = x.to(device), group.to(device)
+            x, group, instance_type = x.to(device), group.to(device), instance_type.to(device)
             
             logits = model(x, group, instance_type)
 

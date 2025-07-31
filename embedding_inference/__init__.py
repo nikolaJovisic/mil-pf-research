@@ -1,3 +1,3 @@
 from embeddings_dataset import EmbeddingsDataset
 from embedding_inference_ import EmbeddingInference
-from embed_runner import run_embedding_pipeline
+from embed_runner import run_embedding_pipeline, get_embedding_cfg

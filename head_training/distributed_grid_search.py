@@ -30,10 +30,11 @@ def get_dataset_cfg(embedding_id):
 
 def get_param_grid():
     return {
-        'pos_weight': [1.0, 1.5],
         'hidden_dim': [8, 16, 32, 64, 128],
-        'aggregation': [Aggregation.ATTENTION, Aggregation.MAX, Aggregation.MEAN],
-        'flatten': [True, False]
+        'prehidden_dim': [32, 64, 128, 256],
+        'use_shared_projector': [True, False],
+        'fusion_mode': ['linear', 'mlp', 'cross-attention'],
+        'layer_norm': [True, False]
     }
 
 def set_nested_attr(obj, key_path, value):
@@ -117,7 +118,21 @@ def run_distributed_training(embedding_id, model_id, results_dir):
 
     all_combinations = list(itertools.product(*param_grid.values()))
     keys = list(param_grid.keys())
-    param_dicts = [dict(zip(keys, combo)) for combo in all_combinations]
+    param_dicts = []
+    
+    for combo in all_combinations:
+        combo_dict = dict(zip(keys, combo))
+
+        hidden_dim = combo_dict['hidden_dim']
+        prehidden_dim = combo_dict['prehidden_dim']
+        shared = combo_dict['use_shared_projector']
+
+        if not shared and prehidden_dim != hidden_dim:
+            continue
+        if hidden_dim > prehidden_dim:
+            continue
+
+        param_dicts.append(combo_dict)
 
     chunks = split_balanced(param_dicts, num_gpus)
 
@@ -132,9 +147,9 @@ def run_distributed_training(embedding_id, model_id, results_dir):
         
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--embedding-id', type=str, required=True)
+    parser.add_argument('--embedding-id', type=str, default="imagenet")
     parser.add_argument('--model-id', type=str)
-    parser.add_argument('--results-dir', type=str, default="../results")
+    parser.add_argument('--results-dir', type=str, default="results")
     args = parser.parse_args()
 
     if args.model_id is None:
