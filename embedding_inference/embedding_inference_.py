@@ -33,7 +33,7 @@ class EmbeddingInference:
             self.dataset,
             BatchEnum.IMAGE,
             batch_size=self.cfg.batch_size,
-            num_workers=self.cfg.img_loader_workers
+            num_workers=self.cfg.loader_workers
         )
         self._run(dataloader, 'images')
 
@@ -42,14 +42,14 @@ class EmbeddingInference:
             self.dataset,
             BatchEnum.TILE,
             batch_size=self.cfg.batch_size,
-            num_workers=self.cfg.tile_loader_workers
+            num_workers=self.cfg.loader_workers
         )
         self._run(dataloader, 'tiles')
 
     def _run(self, loader, subgroup_name):
         with h5py.File(self.hdf5_out_path, 'a') as h5f:
             with torch.no_grad():
-                for batch_images, batch_i, batch_labels in loader:
+                for batch_images, batch_i, batch_labels in tqdm(loader):
                     images = torch.stack(batch_images).to(self.device)
                     embeddings = self.model(images).cpu().numpy()
                     labels_np = np.array(batch_labels)
@@ -97,14 +97,3 @@ class EmbeddingInference:
         model.load_state_dict(state_dict)
         model.eval().to(self.device)
         return model
-    
-    def _check_img_size_match():
-        model_img_size = self.cfg.model.img_size
-        final_resize = self.dataset.format_transform.final_resize
-        resize = self.dataset.resize
-        tile_size = self.tile_size
-        
-        if (final_resize not in [None, model_img_size]) or \
-           (final_resize is None and \
-           (resize != model_img_size or tile_size not in [None, model_img_size])):
-            raise ValueError("Image size mismatch between dataset and model.")

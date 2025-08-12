@@ -4,25 +4,25 @@ pos_weight: 1.0
 
 model_type: perceiver
 use_tiles: true
+aggregation: max
 
 use_shared_projector: true
-fusion_mode: cross-attention
-layer_norm: true
+fusion_mode: linear
+layer_norm: false
 
-input_dim: 768
 prehidden_dim: 32
 hidden_dim: 16
-aggregation: max
 flatten: false
 
 freeze_whole_image_branch: false
 
-batch_size: 2e14
+batch_size: 800000
 lr: 0.02
 weight_decay: 1e-4
 epochs: 500
 patience: 20
 
+input_dim: 768
 eval_every: 30
-load_path: 
+load_path:
 save_path: 

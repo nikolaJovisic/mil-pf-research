@@ -30,11 +30,11 @@ def get_dataset_cfg(embedding_id):
 
 def get_param_grid():
     return {
-        'hidden_dim': [8, 16, 32, 64, 128],
-        'prehidden_dim': [32, 64, 128, 256],
-        'use_shared_projector': [True, False],
-        'fusion_mode': ['linear', 'mlp', 'cross-attention'],
-        'layer_norm': [True, False]
+        'hidden_dim': [8, 16, 32, 64],
+        'prehidden_dim': [32, 64, 128],
+#         'use_shared_projector': [True, False],
+#         'fusion_mode': ['linear', 'mlp', 'cross-attention'],
+#         'layer_norm': [True, False]
     }
 
 def set_nested_attr(obj, key_path, value):
@@ -122,15 +122,16 @@ def run_distributed_training(embedding_id, model_id, results_dir):
     
     for combo in all_combinations:
         combo_dict = dict(zip(keys, combo))
+        
+        if 'hidden_dim' in combo_dict and 'prehidden_dim' in combo_dict:
+            hidden_dim = combo_dict['hidden_dim']
+            prehidden_dim = combo_dict['prehidden_dim']
+    #         shared = combo_dict['use_shared_projector']
 
-        hidden_dim = combo_dict['hidden_dim']
-        prehidden_dim = combo_dict['prehidden_dim']
-        shared = combo_dict['use_shared_projector']
-
-        if not shared and prehidden_dim != hidden_dim:
-            continue
-        if hidden_dim > prehidden_dim:
-            continue
+    #         if not shared and prehidden_dim != hidden_dim:
+    #             continue
+            if hidden_dim > prehidden_dim:
+                continue
 
         param_dicts.append(combo_dict)
 

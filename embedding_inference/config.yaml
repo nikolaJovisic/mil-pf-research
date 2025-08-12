@@ -17,9 +17,8 @@ model:
   
 embeddings_root: /home/nikola.jovisic.ivi/nj/lustre_mock/
 
-batch_size: 8
-img_loader_workers: 16
-tile_loader_workers: 16
+batch_size: 64
+loader_workers: 16 
 
 run_name: lorem-ipsum
 run_description: "Lorem ipsum."
