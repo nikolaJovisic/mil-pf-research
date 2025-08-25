@@ -14,12 +14,11 @@ from mammo_filter.head_training import train_head, load_cfg, Aggregation
 from mammo_filter.embedding_inference import get_embedding_cfg
 # needed because stupid python doesn't know how to import when multiprocessing, even though its imported through shim
 
-def get_dataset_cfg(embedding_id):
-    embeddings_root = get_embedding_cfg().embeddings_root
+def get_dataset_cfg(model):
+    embeddings_root = '/lustre/nj/dinov3-embeddings/' 
 
     def get_path(split):
-        return f'{embeddings_root}/dinov3-h-plus-1024-embed/{split}/embeddings.hdf5'
-        #return f'{embeddings_root}/embed-{embedding_id}-{split}/embeddings.hdf5'
+        return f'{embeddings_root}/{model}/{split}/embeddings.hdf5'
 
     labels = {'pos': [4, 5, 6], 'neg': [1]}
 
@@ -31,13 +30,10 @@ def get_dataset_cfg(embedding_id):
 
 def get_param_grid():
     return {
-        'hidden_dim': [16, 32, 64, 128, 256, 512],
+        'model': ['dinov3-b-512-embed'],
         'double_input_layer': [True, False],
-        'pooler' : [True, False]
-#         'prehidden_dim': [32, 64, 128],
-#         'use_shared_projector': [True, False],
-#         'fusion_mode': ['linear', 'mlp', 'cross-attention'],
-#         'layer_norm': [True, False]
+        'pooler' : [True, False],
+        'hidden_dim': [32, 64, 128],
     }
 
 def set_nested_attr(obj, key_path, value):
@@ -46,7 +42,7 @@ def set_nested_attr(obj, key_path, value):
         obj = getattr(obj, k)
     setattr(obj, keys[-1], value)
 
-def run_training(param_grid, param_list, gpu_id, embedding_id, save_dir):
+def run_training(param_grid, param_list, gpu_id, save_dir):
     import torch
     torch.cuda.set_device(gpu_id)
 
@@ -66,7 +62,7 @@ def run_training(param_grid, param_list, gpu_id, embedding_id, save_dir):
     with open(output_file, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(
-            ['embedding_id', 'param_combo_id'] + list(param_grid.keys()) + summary_keys
+            ['param_combo_id'] + list(param_grid.keys()) + summary_keys
         )
 
     for param_combination in param_list:
@@ -80,14 +76,14 @@ def run_training(param_grid, param_list, gpu_id, embedding_id, save_dir):
             continue
 
         report = train_head(
-            get_dataset_cfg(embedding_id),
+            get_dataset_cfg(param_combination['model']),
             param_combo_id,
             cfg,
             gpu_id,
         )
 
         summary = report.summary()
-        row = [embedding_id, param_combo_id] + [
+        row = [param_combo_id] + [
             val.name if hasattr(val, 'name') else val
             for val in param_combination.values()
         ] + [summary[k] for k in summary_keys]
@@ -109,10 +105,10 @@ def split_balanced(items, num_splits):
 
     return out
 
-def run_distributed_training(embedding_id, model_id, results_dir):
+def run_distributed_training(results_dir):
     num_gpus = torch.cuda.device_count()
     
-    save_dir = f"{results_dir}/{model_id}/"
+    save_dir = f"{results_dir}"
     os.makedirs(save_dir, exist_ok=True)
     
     param_grid = get_param_grid()
@@ -125,24 +121,13 @@ def run_distributed_training(embedding_id, model_id, results_dir):
     
     for combo in all_combinations:
         combo_dict = dict(zip(keys, combo))
-        
-        if 'hidden_dim' in combo_dict and 'prehidden_dim' in combo_dict:
-            hidden_dim = combo_dict['hidden_dim']
-            prehidden_dim = combo_dict['prehidden_dim']
-    #         shared = combo_dict['use_shared_projector']
-
-    #         if not shared and prehidden_dim != hidden_dim:
-    #             continue
-            if hidden_dim > prehidden_dim:
-                continue
-
         param_dicts.append(combo_dict)
 
     chunks = split_balanced(param_dicts, num_gpus)
 
     processes = []
     for gpu_id, param_list in enumerate(chunks):
-        p = mp.Process(target=run_training, args=(param_grid, param_list, gpu_id, embedding_id, save_dir))
+        p = mp.Process(target=run_training, args=(param_grid, param_list, gpu_id, save_dir))
         p.start()
         processes.append(p)
 
@@ -151,15 +136,10 @@ def run_distributed_training(embedding_id, model_id, results_dir):
         
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--embedding-id', type=str, default="dinov3-h-plus-4096-embed")
-    parser.add_argument('--model-id', type=str)
     parser.add_argument('--results-dir', type=str, default="results")
     args = parser.parse_args()
 
-    if args.model_id is None:
-        args.model_id = args.embedding_id
-
-    run_distributed_training(args.embedding_id, args.model_id, args.results_dir)
+    run_distributed_training(args.results_dir)
 
 
 if __name__ == "__main__":

@@ -1,28 +1,37 @@
 logs_path: mammo_filter/head_training/logs
 
-pos_weight: 1.0
+input_dim: 768
+model_type: dinout
+hidden_dim: #always in grid search
 
-model_type: perceiver
-use_tiles: true
+#dinout
+full_state: False
+pooler: #
+double_input_layer: #
+
+#baseline
+use_tiles: false
 aggregation: max
 
+#perceiver
 use_shared_projector: true
 fusion_mode: linear
 layer_norm: false
-
 prehidden_dim: 32
-hidden_dim: 16
+
+#probably not going to edit much
+pos_weight: 1.0
+freeze_whole_image_branch: false
 flatten: false
 
-freeze_whole_image_branch: false
-
+#training
 batch_size: 800000
 lr: 0.02
 weight_decay: 1e-4
 epochs: 500
 patience: 20
 
-input_dim: 768
+#saving
 eval_every: 30
 load_path:
 save_path: 

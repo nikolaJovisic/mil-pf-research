@@ -6,7 +6,8 @@ from torch.utils.data import DataLoader
 import h5py
 from pathlib import Path
 from omegaconf import OmegaConf
-from embedding_inference.model.build import build_model
+#from embedding_inference.model.build import build_model
+from dinov3_wrapper import build_model
 from embedding_inference.utils.serialization import save_embedding_inference
 from embedding_inference.batched_dataloader import get_batched_dataloader, BatchEnum
 import numpy as np
@@ -50,7 +51,8 @@ class EmbeddingInference:
         with h5py.File(self.hdf5_out_path, 'a') as h5f:
             with torch.no_grad():
                 for batch_images, batch_i, batch_labels in tqdm(loader):
-                    images = torch.stack(batch_images).to(self.device)
+                    #images = torch.stack(batch_images).to(self.device) for custom model
+                    images = batch_images
                     embeddings = self.model(images).cpu().numpy()
                     labels_np = np.array(batch_labels)
                     indices = np.array(batch_i)
@@ -92,8 +94,10 @@ class EmbeddingInference:
             )
 
     def _build_model(self):
-        model = build_model(self.cfg.model)
-        state_dict = torch.load(self.cfg.model.weights, map_location="cpu")
-        model.load_state_dict(state_dict)
-        model.eval().to(self.device)
-        return model
+        return build_model(self.device, self.cfg.save_all)
+    
+#         model = build_model(self.cfg.model)
+#         state_dict = torch.load(self.cfg.model.weights, map_location="cpu")
+#         model.load_state_dict(state_dict)
+#         model.eval().to(self.device)
+#         return model

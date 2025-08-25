@@ -35,7 +35,7 @@ def filter_non_dominated(input_file, output_file):
 def main():
     results_file = 'results.csv'
     filtered_results_file = 'results_filtered.csv'
-    input_pattern = 'results/imagenet/results_gpu*.csv'
+    input_pattern = 'results/dinov3-h-plus-512-embed-light/results_gpu*.csv'
 
     input_files = merge_csv_files(input_pattern, results_file)
     filter_non_dominated(results_file, filtered_results_file)

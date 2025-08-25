@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from sklearn.metrics import confusion_matrix
-from head_training.model import Aggregation
+from head_training.model.aggregation import Aggregation
 from head_training.utils.collate import collate
 from head_training.utils.evaluation_report import EvaluationReport
 

@@ -15,7 +15,7 @@ def get_embedding_cfg():
 
 
 def run(split, weights_path, convert_to, gpu_id, run_name_prefix, description):
-    args = {'return_mode': ReturnMode.BREAST_TILES_LABEL, 'tile_size': 518, 'final_resize': 518}
+    args = {'return_mode': ReturnMode.BREAST_TILES_LABEL, 'tile_size': 518, 'final_resize': 4096}
     ds = MammoDataset(
         DatasetEnum.EMBED,
         labels=[1, 4, 5, 6],
@@ -29,8 +29,8 @@ def run(split, weights_path, convert_to, gpu_id, run_name_prefix, description):
     cfg.run_name = f'{run_name_prefix}-{split}'
     cfg.run_description = description
     inference = EmbeddingInference(ds, cfg, gpu_id)
-#     inference.run_images()
-    inference.run_tiles()
+    inference.run_images()
+#     inference.run_tiles()
 
 
 def run_embedding_pipeline(use_imagenet=False, weights=None, description=None, gpu=None):

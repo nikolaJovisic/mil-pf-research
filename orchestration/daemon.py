@@ -5,7 +5,7 @@ import logging
 import torch
 from datetime import timedelta
 
-from extract_backbone import extract_backbone
+from extract_backbone_explora import extract_backbone
 from orchestrator import orchestrate_embeddings_and_training
 
 import sys

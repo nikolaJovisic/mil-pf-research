@@ -1,21 +1,8 @@
-from enum import Enum
 import torch
 import torch.nn as nn
 from torch_scatter import scatter_mean, scatter_max
 from torch.nn.functional import softmax
-
-
-class Aggregation(Enum):
-    MEAN = "mean"
-    MAX = "max"
-    ATTENTION = "attention"
-    
-def build_model(cfg, device):
-    return {
-        'global-attends-local': GlobalAttendsLocal,
-        'perceiver': Perceiver,
-        'baseline': Baseline
-    }[cfg.model_type](cfg).to(device)
+from head_training.model.aggregation import Aggregation
 
 class Perceiver(nn.Module):
     def __init__(self, cfg):
@@ -121,66 +108,13 @@ class Perceiver(nn.Module):
         logits = self.linear_out(agg)
         return logits
 
-
-
-class GlobalAttendsLocal(nn.Module):
-    def __init__(self, cfg):
-        super().__init__()
-
-        self.linear_whole = nn.Linear(cfg.input_dim, cfg.hidden_dim)
-        self.linear_tile = nn.Linear(cfg.input_dim, cfg.hidden_dim)
-        self.relu = nn.ReLU()
-        self.linear_out = nn.Linear(cfg.hidden_dim, 1)
-
-        self.attention_Q = nn.Linear(cfg.hidden_dim, cfg.hidden_dim)
-        self.attention_K = nn.Linear(cfg.hidden_dim, cfg.hidden_dim)
-        self.attention_V = nn.Linear(cfg.hidden_dim, cfg.hidden_dim)
-            
-    def forward(self, x, group, instance_type):
-        is_whole = instance_type == 0
-        is_tile = instance_type == 1
-
-        x_whole, group_whole = x[is_whole], group[is_whole]
-        x_tile, group_tile = x[is_tile], group[is_tile]
-
-        x_whole = self.linear_whole(x_whole)
-        x_whole = self.relu(x_whole)
-
-        x_tile = self.linear_tile(x_tile)
-        x_tile = self.relu(x_tile)
-
-        q = self.attention_Q(x_whole)
-        k = self.attention_K(x_tile)
-        v = self.attention_V(x_tile)
-
-        outputs = torch.empty_like(q)
-        group_ids = torch.unique(group_whole)
-
-        for gid in group_ids:
-            mask_whole = group_whole == gid
-            mask_tile = group_tile == gid
-
-            q_g = q[mask_whole]
-            k_g = k[mask_tile]
-            v_g = v[mask_tile]
-
-            scores = (q_g @ k_g.transpose(0, 1)) / q_g.size(-1)**0.5
-            attn_weights = softmax(scores, dim=-1)
-            out_g = attn_weights @ v_g
-
-            outputs[mask_whole] = out_g
-
-        agg = scatter_max(outputs, group_whole, dim=0)[0]
-        logits = self.linear_out(agg)
-        return logits
-
-
 class Baseline(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.aggregation = cfg.aggregation
 
-        self.linear_in = nn.Linear(cfg.input_dim, cfg.hidden_dim)
+        self.linear_in = nn.Linear(cfg.input_dim, 2 * cfg.hidden_dim)
+        self.linear_2 = nn.Linear(2 * cfg.hidden_dim, cfg.hidden_dim)
         self.relu = nn.ReLU()
         self.linear_out = nn.Linear(cfg.hidden_dim, 1)
 
@@ -192,6 +126,8 @@ class Baseline(nn.Module):
             
     def forward(self, x, group, instance_type):
         x = self.linear_in(x)
+        x = self.relu(x)
+        x = self.linear_2(x)
         x = self.relu(x)
         
         agg = self._aggregate(x, group)

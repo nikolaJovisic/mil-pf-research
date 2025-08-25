@@ -1,4 +1,5 @@
 from torch.utils.data import IterableDataset, DataLoader, get_worker_info
+import torch
 from enum import Enum, auto
 
 from shim import *
@@ -8,10 +9,17 @@ class BatchEnum(Enum):
     TILE = auto()
 
 class BatchDataset(IterableDataset):
+    """
+    This check:
+    
+    if dataset.return_mode != ReturnMode.BREAST_TILES_LABEL:
+        raise NotImplementedError("Cannot load this return mode in batches yet.")
+        
+    is supposed to be in the constructor, but is removed to support sharding trough Subset classes.
+    """
     def __init__(self, dataset, batch_enum, batch_size):
         
-        if dataset.return_mode != ReturnMode.BREAST_TILES_LABEL:
-            raise NotImplementedError("Cannot load this return mode in batches yet.")
+
         
         self.dataset = dataset
         self.batch_enum = batch_enum
@@ -32,13 +40,19 @@ class BatchDataset(IterableDataset):
         batch_labels = []
 
         for i in range(iter_start, self.total_samples, iter_stride):
-            images, tiles, label = self.dataset[i]
+            images, label = self.dataset[i]
+#             images, tiles, label = self.dataset[i]
 
-            if self.batch_enum == BatchEnum.TILE:
-                images = tiles
             
+            gid = i
+            if hasattr(self.dataset, "indices"):
+                gid = self.dataset.indices[i]
+
+#             if self.batch_enum == BatchEnum.TILE:
+#                 images = tiles
+
             batch_images.extend(images)
-            batch_i.extend([i] * len(images))
+            batch_i.extend([gid] * len(images))
             batch_labels.extend([label] * len(images))
 
             while len(batch_images) >= self.batch_size:

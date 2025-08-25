@@ -15,10 +15,10 @@ from omegaconf import OmegaConf
 from pathlib import Path
 from embedding_inference import EmbeddingsDataset
 from head_training.utils.flatten_group import FlattenGroup
-from head_training.model import Aggregation
 from head_training.utils.evaluate import evaluate
 from head_training.utils.collate import collate
-from head_training.model import build_model
+from head_training.model.aggregation import Aggregation
+from head_training.model.model import build_model
 import os
 
 def train_head(dataset_cfg, run_id, cfg=None, gpu_id=None, just_evaluate=False):
