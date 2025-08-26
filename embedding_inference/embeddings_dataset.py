@@ -17,17 +17,17 @@ class EmbeddingsDataset(IterableDataset):
             ic(file['0']['images'][()].shape)
 
         counter = Counter(labels)
-        pos_count = sum(counter[l] for l in self.pos_labels)
-        neg_count = sum(counter[l] for l in self.neg_labels)
         ic(counter, pos_count, neg_count)
 
         unexpected = set(counter) - (self.pos_labels | self.neg_labels)
         if unexpected: ic(f"Warning: unexpected labels {unexpected}")
 
-        self._compute_weights(pos_count, neg_count, pos_weight)
+        self._compute_weights(pos_weight)
         ic(self.weights)
 
-    def _compute_weights(self, pos_count, neg_count, pos_weight):
+    def _compute_weights(self, pos_weight):
+        pos_count = sum(counter[l] for l in self.pos_labels)
+        neg_count = sum(counter[l] for l in self.neg_labels)
         total = pos_count + neg_count
         self.weights = {0: (total / (2 * neg_count)), 1: pos_weight * (total / (2 * pos_count))}
 
