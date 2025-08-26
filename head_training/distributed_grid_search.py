@@ -21,12 +21,13 @@ def get_dataset_cfg(embedding_id):
         return f'{embeddings_root}/dinov3-h-plus-1024-embed/{split}/embeddings.hdf5'
         #return f'{embeddings_root}/embed-{embedding_id}-{split}/embeddings.hdf5'
 
-    labels = {'pos': [4, 5, 6], 'neg': [1]}
+    pos_labels = [4, 5, 6]
+    neg_labels = [1]
 
     return {
-        'train': {get_path('train'): labels},
-        'valid': {get_path('valid'): labels},
-        'test': {get_path('test'): labels}
+        'train': (get_path('train'), pos_labels, neg_labels),
+        'valid': (get_path('valid'), pos_labels, neg_labels),
+        'test': (get_path('test'), pos_labels, neg_labels)
     }
 
 def get_param_grid():

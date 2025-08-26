@@ -35,7 +35,7 @@ class Dinout(nn.Module):
             )
         self.linear_out = nn.Linear(cfg.hidden_dim, 1)
 
-    def forward(self, x, group, _):
+    def forward(self, x, group):
         x = self.disassemble_state(x)[self.pick_idx]
         x = self.proj(x)
         x, _ = scatter_max(x, group, dim=0)

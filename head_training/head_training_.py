@@ -4,6 +4,7 @@ sys.path.append('../embedding_inference')
 sys.path.append('..')
 from shim import *
 
+from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset, DataLoader
 import torch
@@ -39,9 +40,9 @@ def train_head(dataset_cfg, run_id, cfg=None, gpu_id=None, just_evaluate=False):
     
     OmegaConf.save(cfg, config_file)
     
-    train_ds = EmbeddingsDataset(dataset_cfg['train'], cfg.use_tiles, cfg.pos_weight)
-    valid_ds = EmbeddingsDataset(dataset_cfg['valid'], cfg.use_tiles, cfg.pos_weight)
-    test_ds = EmbeddingsDataset(dataset_cfg['test'], cfg.use_tiles, cfg.pos_weight)
+    train_ds = EmbeddingsDataset(*dataset_cfg['train'], cfg.pos_weight)
+    valid_ds = EmbeddingsDataset(*dataset_cfg['valid'], cfg.pos_weight)
+    test_ds = EmbeddingsDataset(*dataset_cfg['test'], cfg.pos_weight)
     
     if cfg.flatten:
         train_ds = FlattenGroup(train_ds)
@@ -80,10 +81,10 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
         model.train()
         train_loss = 0
 
-        for x, y, w, group, instance_type in collate(train_dataset, cfg.batch_size):
-            x, y, w, group, instance_type = x.to(device), y.to(device), w.to(device), group.to(device), instance_type.to(device)
+        for x, y, w, group in tqdm(collate(train_dataset, cfg.batch_size)):
+            x, y, w, group = x.to(device), y.to(device), w.to(device), group.to(device)
 
-            logits = model(x, group, instance_type)
+            logits = model(x, group)
             loss = criterion(logits, y)
             loss = (loss * w).mean()
             train_loss += loss.item()
@@ -95,10 +96,10 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
         model.eval()
         val_loss = 0
         with torch.no_grad():
-            for x, y, w, group, instance_type in collate(valid_dataset, cfg.batch_size):
-                x, y, w, group, instance_type = x.to(device), y.to(device), w.to(device), group.to(device), instance_type.to(device)
+            for x, y, w, group in collate(valid_dataset, cfg.batch_size):
+                x, y, w, group = x.to(device), y.to(device), w.to(device), group.to(device)
 
-                logits = model(x, group, instance_type)
+                logits = model(x, group)
                 loss = criterion(logits, y)
                 loss = (loss * w).mean()
                 val_loss += loss.item()

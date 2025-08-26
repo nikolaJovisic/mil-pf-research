@@ -20,17 +20,18 @@ def get_dataset_cfg(model):
     def get_path(split):
         return f'{embeddings_root}/{model}/{split}/embeddings.hdf5'
 
-    labels = {'pos': [4, 5, 6], 'neg': [1]}
+    pos_labels = [4, 5, 6]
+    neg_labels = [1]
 
     return {
-        'train': {get_path('train'): labels},
-        'valid': {get_path('valid'): labels},
-        'test': {get_path('test'): labels}
+        'train': (get_path('train'), pos_labels, neg_labels),
+        'valid': (get_path('valid'), pos_labels, neg_labels),
+        'test': (get_path('test'), pos_labels, neg_labels)
     }
 
 def get_param_grid():
     return {
-        'model': ['dinov3-b-512-embed'],
+        'model': ['dinov3-s-512-embed'],
         'double_input_layer': [True, False],
         'pooler' : [True, False],
         'hidden_dim': [32, 64, 128],

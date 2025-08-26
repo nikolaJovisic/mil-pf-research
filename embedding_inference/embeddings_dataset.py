@@ -44,5 +44,5 @@ class EmbeddingsDataset(IterableDataset):
                 weight = torch.tensor([self.weights[label]], dtype=torch.float32)
                 label  = torch.tensor([label], dtype=torch.float32)
 
-                yield embeddings, label, weight, torch.zeros_like(weight)
+                yield embeddings, label, weight
 
