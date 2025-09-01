@@ -1,12 +1,16 @@
 logs_path: mammo_filter/head_training/logs
 
 input_dim: 384
-model_type: dinout
+model_type: velo 
 hidden_dim: #always in grid search
 
-#dinout
 full_state: True
 pooler: #
+
+#velo
+#no specifics
+
+#dinout
 double_input_layer: #
 
 #baseline
@@ -25,7 +29,7 @@ freeze_whole_image_branch: false
 flatten: false
 
 #training
-batch_size: 16 
+batch_size: 512 
 lr: 0.02
 weight_decay: 1e-4
 epochs: 500

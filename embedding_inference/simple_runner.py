@@ -9,12 +9,11 @@ from transformers.image_utils import load_image
 def run(split):
     ds = MammoDataset(
         DatasetEnum.EMBED,
-        return_mode=ReturnMode.BREAST_TILES_LABEL,
+        return_mode=ReturnMode.BREAST_LABEL,
         labels=[1, 4, 5, 6],
         convert_to=ConvertTo.RGB_TENSOR,
         split=split,
-        tile_size=1024,
-        final_resize=1024
+        final_resize=512
     )
 
     cfg = get_embedding_cfg()

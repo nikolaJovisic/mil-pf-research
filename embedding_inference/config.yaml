@@ -1,24 +1,24 @@
-model:
-  arch: vit_base
-  num_register_tokens: 4
-  patch_size: 14
-  drop_path_rate: 0.0
-  ffn_layer: mlp
-  weights: /lustre/mammo-filter/weights/dinov2_vitb14_reg4_pretrain.pth
-  layerscale: 1.0e-05
-  block_chunks: 0
-  qkv_bias: true
-  proj_bias: true
-  ffn_bias: true  
-  interpolate_antialias: false
-  interpolate_offset: 0.1
-  drop_path_uniform: true
-  img_size: 512 
+#model:
+#arch: vit_base
+#num_register_tokens: 4
+#patch_size: 14
+#drop_path_rate: 0.0
+#ffn_layer: mlp
+#weights: /lustre/mammo-filter/weights/dinov2_vitb14_reg4_pretrain.pth
+#layerscale: 1.0e-05
+#block_chunks: 0
+#qkv_bias: true
+#proj_bias: true
+#ffn_bias: true  
+#interpolate_antialias: false
+#interpolate_offset: 0.1
+#drop_path_uniform: true
+#img_size: 512 
   
-embeddings_root: /lustre/nj/dinov3-embeddings/dinov3-s-512-embed
-run_name: 
+embeddings_root: /lustre/nj/dinov3-embeddings/dinov3-s-512-embed-light
+run_name: dinov3-s-512-embed-light
 batch_size: 4
 loader_workers: 16
-save_all: true 
+save_all: false
 
-run_description: "DINOv3 ViT-small embeddings of EMBED dataset."
+run_description: "DINOv3 ViT-small embeddings of EMBED dataset, just CLS and pooler outputs."

@@ -17,17 +17,18 @@ class EmbeddingsDataset(IterableDataset):
             ic(file['0']['images'][()].shape)
 
         counter = Counter(labels)
-        ic(counter, pos_count, neg_count)
+        ic(counter)
 
         unexpected = set(counter) - (self.pos_labels | self.neg_labels)
         if unexpected: ic(f"Warning: unexpected labels {unexpected}")
 
-        self._compute_weights(pos_weight)
+        self._compute_weights(counter, pos_weight)
         ic(self.weights)
 
-    def _compute_weights(self, pos_weight):
+    def _compute_weights(self, counter, pos_weight):
         pos_count = sum(counter[l] for l in self.pos_labels)
         neg_count = sum(counter[l] for l in self.neg_labels)
+        ic(pos_count, neg_count)
         total = pos_count + neg_count
         self.weights = {0: (total / (2 * neg_count)), 1: pos_weight * (total / (2 * pos_count))}
 
@@ -45,4 +46,3 @@ class EmbeddingsDataset(IterableDataset):
                 label  = torch.tensor([label], dtype=torch.float32)
 
                 yield embeddings, label, weight
-

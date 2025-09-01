@@ -6,36 +6,33 @@ import sys
 sys.path.append('..')
 from shim import *
 
-def get_dataset_cfg(embedding_id):
-    embeddings_root = get_embedding_cfg().embeddings_root
+def get_dataset_cfg(model):
+    embeddings_root = '/lustre/nj/dinov3-embeddings/' 
 
     def get_path(split):
-        return f'{embeddings_root}/embed-imagenet-copy/embed-{embedding_id}-{split}/embeddings.hdf5'
+        return f'{embeddings_root}/{model}/{split}/embeddings.hdf5'
 
-    labels = {'pos': [4, 5, 6], 'neg': [1]}
+    pos_labels = [4, 5, 6]
+    neg_labels = [1]
 
     return {
-        'train': {get_path('train'): labels},
-        'valid': {get_path('valid'): labels},
-        'test': {get_path('train'): labels}
+        'train': (get_path('train'), pos_labels, neg_labels),
+        'valid': (get_path('valid'), pos_labels, neg_labels),
+        'test': (get_path('test'), pos_labels, neg_labels)
     }
 
-embedding_id = "imagenet"
-gpu_id = 0
-save_dir = "results_eval"
-os.makedirs(save_dir, exist_ok=True)
+#save_dir = "results_eval"
+#os.makedirs(save_dir, exist_ok=True)
 
-torch.cuda.set_device(gpu_id)
-
+model = 'dinov3-s-512-embed'
 cfg = load_cfg()
 param_combo_id = str(uuid.uuid4())[:8]
 
 report = train_head(
-    get_dataset_cfg(embedding_id),
+    get_dataset_cfg(model),
     param_combo_id,
-    cfg,
-    gpu_id,
-    just_evaluate=True
+    cfg
+    #just_evaluate=True
 )
 
 summary = report.summary()
