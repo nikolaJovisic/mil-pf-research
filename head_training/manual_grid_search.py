@@ -7,12 +7,8 @@ import argparse
 import torch
 import sys
 
-sys.path.append('..')
-
-from shim import *
-from mammo_filter.head_training import train_head, load_cfg, Aggregation 
-from mammo_filter.embedding_inference import get_embedding_cfg
-# needed because stupid python doesn't know how to import when multiprocessing, even though its imported through shim
+from head_training_ import train_head, load_cfg, Aggregation 
+from utils.evaluation_report import EvaluationReport
 
 def get_dataset_cfg(model):
     embeddings_root = '/lustre/nj/dinov3-embeddings/' 

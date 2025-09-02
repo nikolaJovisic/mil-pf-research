@@ -1,10 +1,9 @@
 import sys
-sys.path.append("..")
-from shim import *
 import numpy as np
 import torch
 from transformers import AutoImageProcessor, AutoModel
 from transformers.image_utils import load_image
+from mammo_datasets import *
 
 args = {
     'convert_to': ConvertTo.RGB_TENSOR,

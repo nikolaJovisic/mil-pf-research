@@ -2,9 +2,7 @@ import argparse
 import sys
 import uuid
 
-sys.path.append('..')
-
-from shim import *
+from mammo_datasets import *
 from embedding_inference import EmbeddingInference
 from omegaconf import OmegaConf
 

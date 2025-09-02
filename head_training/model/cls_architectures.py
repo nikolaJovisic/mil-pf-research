@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch_scatter import scatter_mean, scatter_max
 from torch.nn.functional import softmax
-from head_training.model.aggregation import Aggregation
+from model.aggregation import Aggregation
 
 class Perceiver(nn.Module):
     def __init__(self, cfg):

@@ -2,7 +2,7 @@ from torch.utils.data import IterableDataset, DataLoader, get_worker_info
 import torch
 from enum import Enum, auto
 
-from shim import *
+from mammo_datasets import *
 
 class BatchEnum(Enum):
     IMAGE = auto()

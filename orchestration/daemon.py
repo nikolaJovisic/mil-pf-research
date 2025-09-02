@@ -8,9 +8,7 @@ from datetime import timedelta
 from extract_backbone_explora import extract_backbone
 from orchestrator import orchestrate_embeddings_and_training
 
-import sys
-sys.path.append('..')
-from shim import *
+REPOS_DIR = ''
 
 CHECKPOINTS_DIR = f'{REPOS_DIR}/dinov2/outputs'
 DESCRIPTION = 'Initial DINO orchestration.'

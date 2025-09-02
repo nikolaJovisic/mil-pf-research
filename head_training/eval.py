@@ -2,9 +2,6 @@ import torch
 import uuid
 import csv
 import os
-import sys
-sys.path.append('..')
-from shim import *
 
 def get_dataset_cfg(model):
     embeddings_root = '/lustre/nj/dinov3-embeddings/' 

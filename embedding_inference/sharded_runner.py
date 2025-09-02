@@ -1,12 +1,10 @@
-import sys
-sys.path.append("..")
-from shim import *
 import os
 import torch
 import torch.multiprocessing as mp
 from torch.utils.data import Subset
 import h5py
 from omegaconf import OmegaConf
+from mammo_datasets import *
 
 def shard_indices(n, world_size, rank):
     q, r = divmod(n, world_size)

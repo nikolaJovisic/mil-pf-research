@@ -1,10 +1,5 @@
-import sys
-
-sys.path.append('../embedding_inference')
-sys.path.append('..')
-from shim import *
-
 from tqdm import tqdm
+from icecream import ic
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset, DataLoader
 import torch
@@ -14,12 +9,11 @@ import numpy as np
 import random
 from omegaconf import OmegaConf
 from pathlib import Path
-from embedding_inference import EmbeddingsDataset
-from head_training.utils.flatten_group import FlattenGroup
-from head_training.utils.evaluate import evaluate
-from head_training.utils.collate import collate
-from head_training.model.aggregation import Aggregation
-from head_training.model.model import build_model
+from embeddings_dataset import EmbeddingsDataset
+from utils.flatten_group import FlattenGroup
+from utils.evaluate import evaluate
+from model.aggregation import Aggregation
+from model.model_ import build_model
 import os
 
 def train_head(dataset_cfg, run_id, cfg=None, gpu_id=None, just_evaluate=False):
@@ -32,7 +26,7 @@ def train_head(dataset_cfg, run_id, cfg=None, gpu_id=None, just_evaluate=False):
         torch.cuda.set_device(gpu_id)
         device = f'{device}:{gpu_id}'
     
-    log_dir = os.path.join(REPOS_DIR, cfg.logs_path, run_id)
+    log_dir = os.path.join(cfg.logs_path, run_id)
     os.makedirs(log_dir, exist_ok=True)
     
     log_file = os.path.join(log_dir, f"{gpu_id}.csv")
@@ -40,9 +34,9 @@ def train_head(dataset_cfg, run_id, cfg=None, gpu_id=None, just_evaluate=False):
     
     OmegaConf.save(cfg, config_file)
     
-    train_ds = EmbeddingsDataset(*dataset_cfg['train'], cfg.pos_weight)
-    valid_ds = EmbeddingsDataset(*dataset_cfg['valid'], cfg.pos_weight)
-    test_ds = EmbeddingsDataset(*dataset_cfg['test'], cfg.pos_weight)
+    train_ds = EmbeddingsDataset(*dataset_cfg['train'], cfg.batch_size, cfg.pos_weight)
+    valid_ds = EmbeddingsDataset(*dataset_cfg['valid'], cfg.batch_size, cfg.pos_weight)
+    test_ds = EmbeddingsDataset(*dataset_cfg['test'], cfg.batch_size, cfg.pos_weight)
     
     if cfg.flatten:
         train_ds = FlattenGroup(train_ds)
@@ -80,8 +74,8 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
     for epoch in range(cfg.epochs):
         model.train()
         train_loss = 0
-
-        for x, y, w, group in tqdm(collate(train_dataset, cfg.batch_size)):
+        ic('Training:')
+        for x, y, w, group in tqdm(train_dataset):
             x, y, w, group = x.to(device), y.to(device), w.to(device), group.to(device)
 
             logits = model(x, group)
@@ -96,7 +90,8 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
         model.eval()
         val_loss = 0
         with torch.no_grad():
-            for x, y, w, group in collate(valid_dataset, cfg.batch_size):
+            ic('Validating:')
+            for x, y, w, group in tqdm(valid_dataset):
                 x, y, w, group = x.to(device), y.to(device), w.to(device), group.to(device)
 
                 logits = model(x, group)
