@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 from torch.nn.functional import softmax
-from torch_scatter import scatter_max 
+from torch_geometric.utils import softmax as segment_softmax
+from torch_scatter import scatter_add, scatter_max
 from einops import rearrange
 
 def disassemble_small_state(x):
@@ -48,29 +49,23 @@ class Velo(nn.Module):
         patch_tokens = self.conv1(patch_tokens)
         patch_tokens = self.conv2(patch_tokens)
         patch_tokens = rearrange(patch_tokens, 'b c h w -> b (h w) c')
+
         k = self.k(patch_tokens)
         v = self.v(patch_tokens)
 
-        group_ids = torch.unique(group)
-        outputs = []
+        B, P, C = k.shape
+        G = int(group.max().item()) + 1
 
-        for i, gid in enumerate(group_ids):
-            mask = group == gid
-            k_group = k[mask]
-            v_group = v[mask]
+        g_tok = group[:, None].expand(B, P).reshape(-1)
 
-            k_group = rearrange(k_group, 'b p c -> c (b p)')
-            v_group = rearrange(v_group, 'b p c -> (b p) c') 
+        scores = (k @ self.latent.t()).squeeze(-1) / (self.latent.size(-1) ** 0.5)
+        attn = segment_softmax(scores.reshape(-1), g_tok, num_nodes=G)
 
-            scores = (self.latent @ k_group) / self.latent.size(-1) ** 0.5
-            attn_weights = softmax(scores, dim=-1)
-            out_group = attn_weights @ v_group
+        v_flat = v.reshape(B * P, C)
+        out_group = scatter_add(attn.unsqueeze(-1) * v_flat, g_tok, dim=0, dim_size=G)
 
-            fused = torch.cat([global_agg[i], out_group[0]], dim=-1)
-            outputs.append(fused)
-
-        agg = torch.stack(outputs, dim=0)
-        out = self.linear_out(agg)
+        fused = torch.cat([global_agg, out_group], dim=-1)
+        out = self.linear_out(fused)
         return out
 
 

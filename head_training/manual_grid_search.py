@@ -27,10 +27,9 @@ def get_dataset_cfg(model):
 
 def get_param_grid():
     return {
-        'model': ['dinov3-s-512-embed-light'],
-        'pooler' : [True, False],
-        'double_input_layer': [True, False],
-        'hidden_dim': [8, 16, 32, 64, 128],
+        'model': ['dinov3-s-512-embed'],
+        # 'pooler' : [True, False],
+        # 'hidden_dim': [8, 16, 32, 64, 128],
     }
 
 def set_nested_attr(obj, key_path, value):

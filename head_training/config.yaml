@@ -1,11 +1,11 @@
 logs_path: /home/nikola.jovisic.ivi/nj/mammo_filter/head_training/logs
 
 input_dim: 384
-model_type: dinout 
-hidden_dim: #always in grid search
+model_type: velo 
+hidden_dim: 8 #always in grid search
 
-full_state: False 
-pooler: #
+full_state: true 
+pooler: true #
 
 #velo
 #no specifics
@@ -29,13 +29,13 @@ freeze_whole_image_branch: false
 flatten: false
 
 #training
-batch_size: 2e16 #4096 
+batch_size: 4096 #2e16  
 lr: 0.02
 weight_decay: 1e-4
 epochs: 500
 patience: 20
 
 #saving
-eval_every: 30
+eval_every: 1 
 load_path:
 save_path: 

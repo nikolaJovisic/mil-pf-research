@@ -3,6 +3,8 @@ import uuid
 import csv
 import os
 
+from head_training_ import load_cfg, train_head
+
 def get_dataset_cfg(model):
     embeddings_root = '/lustre/nj/dinov3-embeddings/' 
 
