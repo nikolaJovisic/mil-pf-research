@@ -36,16 +36,7 @@ class EmbeddingInference:
             batch_size=self.cfg.batch_size,
             num_workers=self.cfg.loader_workers
         )
-        self._run(dataloader, 'images')
-
-    def run_tiles(self):
-        dataloader = get_batched_dataloader(
-            self.dataset,
-            BatchEnum.TILE,
-            batch_size=self.cfg.batch_size,
-            num_workers=self.cfg.loader_workers
-        )
-        self._run(dataloader, 'tiles')
+        self._run(dataloader, 'embeddings')
 
     def _run(self, loader, subgroup_name):
         with h5py.File(self.hdf5_out_path, 'a') as h5f:
@@ -53,7 +44,10 @@ class EmbeddingInference:
                 for batch_images, batch_i, batch_labels in tqdm(loader):
                     #images = torch.stack(batch_images).to(self.device) for custom model
                     images = batch_images
-                    embeddings = self.model(images).cpu().numpy()
+                    embeddings = self.model(images)
+                    embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+                    embeddings = embeddings.cpu().numpy()
+
                     labels_np = np.array(batch_labels)
                     indices = np.array(batch_i)
 
@@ -96,6 +90,7 @@ class EmbeddingInference:
     def _build_model(self):
         return build_model(self.device, self.cfg.save_all)
     
+#         for custom model: 
 #         model = build_model(self.cfg.model)
 #         state_dict = torch.load(self.cfg.model.weights, map_location="cpu")
 #         model.load_state_dict(state_dict)

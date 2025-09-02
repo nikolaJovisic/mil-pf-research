@@ -12,10 +12,10 @@ def evaluate(model, dataset, batch_size, device='cuda'):
     all_labels = []
 
     with torch.no_grad():
-        for x, y, _, group, instance_type in dataset:
-            x, group, instance_type = x.to(device), group.to(device), instance_type.to(device)
+        for x, y, _, group in dataset:
+            x, group = x.to(device), group.to(device)
             
-            logits = model(x, group, instance_type)
+            logits = model(x, group)
 
             all_logits.append(logits.cpu())
             all_labels.append(y)

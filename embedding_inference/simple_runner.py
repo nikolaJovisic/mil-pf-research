@@ -17,7 +17,7 @@ def run(split):
     )
 
     cfg = get_embedding_cfg()
-    cfg.run_name = cfg.run_name + f'-{split}'
+    cfg.run_name = split
     inference = EmbeddingInference(ds, cfg) 
     inference.run_images()
 
