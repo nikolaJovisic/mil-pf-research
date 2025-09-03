@@ -5,7 +5,7 @@ from transformers import AutoModel, AutoImageProcessor
 class DinoV3(nn.Module):
     def __init__(self, device, save_all):
         super().__init__()
-        model_name = "facebook/dinov3-vith16plus-pretrain-lvd1689m"
+        model_name = "facebook/dinov3-vitb16-pretrain-lvd1689m"
         self.device = torch.device(device)
         self.base_model = AutoModel.from_pretrained(model_name).to(self.device).eval()
         self.processor = AutoImageProcessor.from_pretrained(model_name, do_resize=False)

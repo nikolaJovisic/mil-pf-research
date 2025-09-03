@@ -15,7 +15,7 @@
 #drop_path_uniform: true
 #img_size: 512 
   
-embeddings_root: /lustre/nj/dinov3-embeddings/h-plus-2048 
+embeddings_root: /lustre/nj/dinov3-embeddings/b-2048 
 run_name: 
 batch_size: 4
 loader_workers: 16
