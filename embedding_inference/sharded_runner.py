@@ -5,6 +5,7 @@ from torch.utils.data import Subset
 import h5py
 from omegaconf import OmegaConf
 from mammo_datasets import *
+from embedding_inference_ import EmbeddingInference
 
 def shard_indices(n, world_size, rank):
     q, r = divmod(n, world_size)
@@ -20,16 +21,16 @@ def run_worker(rank, split, world_size):
         labels=[1, 4, 5, 6],
         convert_to=ConvertTo.RGB_TENSOR,
         split=split,
-        final_resize=512,
+        final_resize=2048,
     )
     idx = shard_indices(len(ds_full), world_size, rank)
     ds = Subset(ds_full, idx)
-    cfg = get_embedding_cfg()
+    cfg = OmegaConf.load('/home/nikola.jovisic.ivi/nj/mammo_filter/embedding_inference/config.yaml')
     cfg.run_name = f'{split}-gpu{rank}'
     EmbeddingInference(ds, cfg, device=f'cuda:{rank}').run_images()
 
 def merge_split(split, world_size):
-    base_cfg = get_embedding_cfg()
+    base_cfg = OmegaConf.load('/home/nikola.jovisic.ivi/nj/mammo_filter/embedding_inference/config.yaml')
     root = base_cfg.embeddings_root
     base_run = f"{split}"
     dst_dir = os.path.join(root, base_run)

@@ -8,8 +8,8 @@ from pathlib import Path
 from omegaconf import OmegaConf
 #from embedding_inference.model.build import build_model
 from dinov3_wrapper import build_model
-from embedding_inference.utils.serialization import save_embedding_inference
-from embedding_inference.batched_dataloader import get_batched_dataloader, BatchEnum
+from utils.serialization import save_embedding_inference
+from batched_dataloader import get_batched_dataloader, BatchEnum
 import numpy as np
 from itertools import islice
 
