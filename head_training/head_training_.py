@@ -35,15 +35,15 @@ def train_head(dataset_cfg, run_id, cfg=None, gpu_id=None, just_evaluate=False):
     
     OmegaConf.save(cfg, config_file)
     
-    # train_ds = EmbeddingsDataset(*dataset_cfg['train'], cfg.batch_size, cfg.pos_weight)
-    # valid_ds = EmbeddingsDataset(*dataset_cfg['valid'], cfg.batch_size, cfg.pos_weight)
-    # test_ds = EmbeddingsDataset(*dataset_cfg['test'], cfg.batch_size, cfg.pos_weight)
+    train_ds = EmbeddingsDataset(*dataset_cfg['train'], cfg.batch_size, cfg.pos_weight)
+    valid_ds = EmbeddingsDataset(*dataset_cfg['valid'], cfg.batch_size, cfg.pos_weight)
+    test_ds = EmbeddingsDataset(*dataset_cfg['test'], cfg.batch_size, cfg.pos_weight)
     
-    root = '/lustre/nj/dinov3-embeddings/dinov3-s-512-embed'
-
-    train_ds = PrecollatedDataset(f'{root}/precollated/train', device)
-    valid_ds = PrecollatedDataset(f'{root}/precollated/valid', device)
-    test_ds = PrecollatedDataset(f'{root}/precollated/test', device)
+    #root = '/lustre/nj/dinov3-embeddings/dinov3-s-512-embed'
+    # root = '/home/nikola.jovisic.ivi/nj/mammo_filter'
+    # train_ds = PrecollatedDataset(f'{root}/precollated/train', device)
+    # valid_ds = PrecollatedDataset(f'{root}/precollated/valid', device)
+    # test_ds = PrecollatedDataset(f'{root}/precollated/test', device)
 
     if cfg.flatten:
         train_ds = FlattenGroup(train_ds)
@@ -78,28 +78,30 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
     best_val_loss = float('inf')
     patience_counter = 0
 
+
     for epoch in range(cfg.epochs):
+        optimizer.zero_grad()
         model.train()
         train_loss = 0
         ic('Training:')
         for x, y, w, group in tqdm(train_dataset):
-            #x, y, w, group = x.to(device), y.to(device), w.to(device), group.to(device)
+            x, y, w, group = x.to(device), y.to(device), w.to(device), group.to(device)
 
             logits = model(x, group)
             loss = criterion(logits, y)
             loss = (loss * w).mean()
             train_loss += loss.item()
 
-            optimizer.zero_grad()
             loss.backward()
-            optimizer.step()
+
+        optimizer.step()
 
         model.eval()
         val_loss = 0
         with torch.no_grad():
             ic('Validating:')
             for x, y, w, group in tqdm(valid_dataset):
-                #x, y, w, group = x.to(device), y.to(device), w.to(device), group.to(device)
+                x, y, w, group = x.to(device), y.to(device), w.to(device), group.to(device)
 
                 logits = model(x, group)
                 loss = criterion(logits, y)

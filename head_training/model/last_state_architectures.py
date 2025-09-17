@@ -15,7 +15,8 @@ def disassemble_full_state(x):
     cls_ = x[:, 1, :]
     registers = x[:, 2:6, :]
     patch_tokens_flat = x[:, 6:, :]
-    patch_tokens = patch_tokens_flat.unflatten(1, (32, 32)) # for 512 inputs
+    # patch_tokens = patch_tokens_flat.unflatten(1, (32, 32)) # for 512 inputs
+    patch_tokens = patch_tokens_flat.unflatten(1, (100, 100)) # for 1600 inputs
     return pooler, cls_, registers, patch_tokens
 
 class Velo(nn.Module):
@@ -23,13 +24,13 @@ class Velo(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.global_pick_idx = 0 if cfg.pooler else 1
-        self.global_proj = nn.Linear(384, cfg.hidden_dim)
+        self.global_proj = nn.Linear(cfg.input_dim, cfg.hidden_dim)
         self.conv1 = nn.Sequential(
-            nn.Conv2d(384, cfg.hidden_dim, kernel_size=1),
+            nn.Conv2d(cfg.input_dim, cfg.hidden_dim, kernel_size=1),
             nn.ReLU(),
         )
         self.conv2 = nn.Sequential(
-            nn.Conv2d(cfg.hidden_dim, cfg.hidden_dim, kernel_size=7, stride=5),
+            nn.Conv2d(cfg.hidden_dim, cfg.hidden_dim, kernel_size=19, stride=16), # for 1600 inputs, kernel_size=7, stride=5 for 512 inputs
             nn.ReLU(),
         )
         self.k = nn.Linear(cfg.hidden_dim, cfg.hidden_dim)

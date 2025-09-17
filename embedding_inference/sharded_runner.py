@@ -15,13 +15,15 @@ def shard_indices(n, world_size, rank):
 
 def run_worker(rank, split, world_size):
     torch.cuda.set_device(rank)
+    limits = {'train': 2000, 'valid': 300, 'test': 500}
     ds_full = MammoDataset(
         DatasetEnum.EMBED,
         return_mode=ReturnMode.BREAST_LABEL,
         labels=[1, 4, 5, 6],
         convert_to=ConvertTo.RGB_TENSOR,
         split=split,
-        final_resize=2048,
+        final_resize=1600,
+        per_label_limits={1: limits[split]}
     )
     idx = shard_indices(len(ds_full), world_size, rank)
     ds = Subset(ds_full, idx)

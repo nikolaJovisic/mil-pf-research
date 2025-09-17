@@ -10,7 +10,7 @@ def evaluate(model, dataset, batch_size, device='cuda'):
 
     with torch.no_grad():
         for x, y, _, group in dataset:
-            #x, group = x.to(device), group.to(device)
+            x, group = x.to(device), group.to(device)
             
             logits = model(x, group)
 
