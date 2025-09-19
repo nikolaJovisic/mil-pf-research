@@ -1,14 +1,17 @@
 logs_path: /home/nikola.jovisic.ivi/nj/mammo_filter/head_training/logs
 
-input_dim: 768 
-model_type: velo 
+input_dim: 1536 
+model_type: trex 
 hidden_dim: 8 #always in grid search
 
-full_state: true 
-pooler: true #
+#trex
+share0: #
+share1: #
+
 
 #velo
-#no specifics
+full_state: true 
+pooler: true #
 
 #dinout
 double_input_layer: #
@@ -29,13 +32,12 @@ freeze_whole_image_branch: false
 flatten: false
 
 #training
-batch_size: 256 #4096 #2e16  
+#batch_size: 256 #4096 #2e16  
 lr: 0.02
 weight_decay: 1e-4
 epochs: 700
-patience: 20
+patience: 50 
 
 #saving
-eval_every: 1 
 load_path:
 save_path: 

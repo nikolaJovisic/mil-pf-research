@@ -10,26 +10,11 @@ import sys
 from head_training_ import train_head, load_cfg, Aggregation 
 from utils.evaluation_report import EvaluationReport
 
-def get_dataset_cfg(model):
-    embeddings_root = '/lustre/nj/dinov3-embeddings/' 
-
-    def get_path(split):
-        return f'{embeddings_root}/{model}/{split}/embeddings.hdf5'
-
-    pos_labels = [4, 5, 6]
-    neg_labels = [1]
-
-    return {
-        'train': (get_path('train'), pos_labels, neg_labels),
-        'valid': (get_path('valid'), pos_labels, neg_labels),
-        'test': (get_path('test'), pos_labels, neg_labels)
-    }
-
 def get_param_grid():
     return {
-        'model': ['b-1600-2k_negatives'],
-        'hidden_dim': [8, 16, 32, 64, 128],
-        #'pooler' : [True, False],
+        'hidden_dim': [4, 6, 8, 10, 12, 14, 16, 32, 64, 128],
+        'shared0': [True, False],
+        'shared1': [True, False]
     }
 
 def set_nested_attr(obj, key_path, value):
@@ -72,7 +57,6 @@ def run_training(param_grid, param_list, gpu_id, save_dir):
             continue
 
         report = train_head(
-            get_dataset_cfg(param_combination['model']),
             param_combo_id,
             cfg,
             gpu_id,
@@ -120,6 +104,7 @@ def run_distributed_training(results_dir):
         param_dicts.append(combo_dict)
 
     chunks = split_balanced(param_dicts, num_gpus)
+
 
     processes = []
     for gpu_id, param_list in enumerate(chunks):

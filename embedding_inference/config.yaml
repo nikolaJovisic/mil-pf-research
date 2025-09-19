@@ -15,10 +15,10 @@
 #drop_path_uniform: true
 #img_size: 512 
   
-embeddings_root: /lustre/nj/dinov3-embeddings/b-1600-2k_negatives
+embeddings_root: /lustre/nj/dinov3-embeddings/v2-giant
 run_name: 
 batch_size: 4
 loader_workers: 16
-save_all: true 
+#save_all:
 
 run_description: "Lorem ipsum." 

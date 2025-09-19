@@ -17,14 +17,12 @@ class BatchDataset(IterableDataset):
         
     is supposed to be in the constructor, but is removed to support sharding trough Subset classes.
     """
-    def __init__(self, dataset, batch_enum, batch_size):
-        
-
-        
+    def __init__(self, dataset, batch_enum, batch_size, tiles):
         self.dataset = dataset
         self.batch_enum = batch_enum
         self.batch_size = batch_size
         self.total_samples = len(dataset)
+        self.tiles = tiles
 
     def __iter__(self):
         worker_info = get_worker_info()
@@ -40,16 +38,17 @@ class BatchDataset(IterableDataset):
         batch_labels = []
 
         for i in range(iter_start, self.total_samples, iter_stride):
-            images, label = self.dataset[i]
-#             images, tiles, label = self.dataset[i]
-
+            if self.tiles:
+                images, tiles, label = self.dataset[i]
+            else:
+                images, label = self.dataset[i]
             
             gid = i
             if hasattr(self.dataset, "indices"):
                 gid = self.dataset.indices[i]
 
-#             if self.batch_enum == BatchEnum.TILE:
-#                 images = tiles
+            if self.batch_enum == BatchEnum.TILE:
+                images = tiles
 
             batch_images.extend(images)
             batch_i.extend([gid] * len(images))
@@ -68,5 +67,5 @@ class BatchDataset(IterableDataset):
         if batch_images:
             yield batch_images, batch_i, batch_labels
 
-def get_batched_dataloader(dataset, batch_enum=BatchEnum.IMAGE, batch_size=8, num_workers=16):
-    return DataLoader(BatchDataset(dataset, batch_enum, batch_size), batch_size=None, num_workers=num_workers)
+def get_batched_dataloader(dataset, batch_enum=BatchEnum.IMAGE, batch_size=8, num_workers=16, tiles=True):
+    return DataLoader(BatchDataset(dataset, batch_enum, batch_size, tiles), batch_size=None, num_workers=num_workers)

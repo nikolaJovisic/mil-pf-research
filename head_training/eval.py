@@ -15,15 +15,15 @@ def get_dataset_cfg(model):
     neg_labels = [1]
 
     return {
-        'train': (get_path('train'), pos_labels, neg_labels),
-        'valid': (get_path('valid'), pos_labels, neg_labels),
-        'test': (get_path('test'), pos_labels, neg_labels)
+        'train': ([get_path(f'train-gpu{gpu}') for gpu in range(6)], pos_labels, neg_labels),
+        'valid': ([get_path(f'valid-gpu{gpu}') for gpu in range(6)], pos_labels, neg_labels),
+        'test': ([get_path(f'test-gpu{gpu}') for gpu in range(6)], pos_labels, neg_labels)
     }
 
 #save_dir = "results_eval"
 #os.makedirs(save_dir, exist_ok=True)
 
-model = 'dinov3-s-512-embed'
+model = 'v2-giant'
 cfg = load_cfg()
 param_combo_id = str(uuid.uuid4())[:8]
 

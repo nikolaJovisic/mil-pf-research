@@ -15,21 +15,23 @@ def shard_indices(n, world_size, rank):
 
 def run_worker(rank, split, world_size):
     torch.cuda.set_device(rank)
-    limits = {'train': 2000, 'valid': 300, 'test': 500}
+    #limits = {'train': 2000, 'valid': 300, 'test': 500}
     ds_full = MammoDataset(
         DatasetEnum.EMBED,
-        return_mode=ReturnMode.BREAST_LABEL,
+        return_mode=ReturnMode.BREAST_TILES_LABEL,
         labels=[1, 4, 5, 6],
-        convert_to=ConvertTo.RGB_TENSOR,
+        convert_to=ConvertTo.RGB_TENSOR_IMGNET_NORM,
         split=split,
-        final_resize=1600,
-        per_label_limits={1: limits[split]}
+        tile_size=518,
+        final_resize=518
     )
     idx = shard_indices(len(ds_full), world_size, rank)
     ds = Subset(ds_full, idx)
     cfg = OmegaConf.load('/home/nikola.jovisic.ivi/nj/mammo_filter/embedding_inference/config.yaml')
     cfg.run_name = f'{split}-gpu{rank}'
-    EmbeddingInference(ds, cfg, device=f'cuda:{rank}').run_images()
+    embedding_inference = EmbeddingInference(ds, cfg, device=f'cuda:{rank}')
+    embedding_inference.run_images()
+    embedding_inference.run_tiles()
 
 def merge_split(split, world_size):
     base_cfg = OmegaConf.load('/home/nikola.jovisic.ivi/nj/mammo_filter/embedding_inference/config.yaml')

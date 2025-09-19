@@ -16,18 +16,18 @@ def collate(dataset, batch_size):
 
         while instance_count < batch_size:
             if buffered_group is not None:
-                x, y, w = buffered_group
+                x, y, w, instance_type = buffered_group
                 buffered_group = None
             else:
                 try:
-                    x, y, w = next(iterator)
+                    x, y, w, instance_type = next(iterator)
                 except StopIteration:
                     break
 
             group_size = x.size(0)
 
             if instance_count + group_size > batch_size:
-                buffered_group = (x, y, w)
+                buffered_group = (x, y, w, instance_type)
                 break
 
 
@@ -36,6 +36,7 @@ def collate(dataset, batch_size):
             group_list.append(group_ids)
             y_list.append(y)
             w_list.append(w)
+            type_list.append(instance_type)
 
             instance_count += group_size
             group_idx += 1
@@ -47,5 +48,6 @@ def collate(dataset, batch_size):
         group = torch.cat(group_list, dim=0)
         y = torch.stack(y_list) if y_list else torch.empty((0,))
         w = torch.stack(w_list) if w_list else torch.empty((0,))
+        instance_type = torch.cat(type_list, dim=0) if type_list else torch.empty((0,), dtype=torch.long)
 
-        yield x_batch, y, w, group
+        yield x_batch, y, w, group, instance_type

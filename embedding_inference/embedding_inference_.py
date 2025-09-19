@@ -7,7 +7,7 @@ import h5py
 from pathlib import Path
 from omegaconf import OmegaConf
 #from embedding_inference.model.build import build_model
-from dinov3_wrapper import build_model
+from dinov2_wrapper import build_model
 from utils.serialization import save_embedding_inference
 from batched_dataloader import get_batched_dataloader, BatchEnum
 import numpy as np
@@ -36,7 +36,16 @@ class EmbeddingInference:
             batch_size=self.cfg.batch_size,
             num_workers=self.cfg.loader_workers
         )
-        self._run(dataloader, 'embeddings')
+        self._run(dataloader, 'images')
+
+    def run_tiles(self):
+        dataloader = get_batched_dataloader(
+            self.dataset,
+            BatchEnum.TILE,
+            batch_size=self.cfg.batch_size,
+            num_workers=self.cfg.loader_workers
+        )
+        self._run(dataloader, 'tiles')
 
     def _run(self, loader, subgroup_name):
         with h5py.File(self.hdf5_out_path, 'a') as h5f:
@@ -88,7 +97,7 @@ class EmbeddingInference:
             )
 
     def _build_model(self):
-        return build_model(self.device, self.cfg.save_all)
+        return build_model(self.device) #, self.cfg.save_all)
     
 #         for custom model: 
 #         model = build_model(self.cfg.model)

@@ -10,45 +10,47 @@ from utils.collate import collate
 import psutil
 
 class EmbeddingsDataset(Dataset):
-    def __init__(self, h5_path, pos_labels, neg_labels, batch_size, pos_weight=1.0):
+    def __init__(self, h5_paths, pos_labels, neg_labels, batch_size, pos_weight=1.0):
         self.pos_labels = set(pos_labels)
         self.neg_labels = set(neg_labels)
 
-        print(f'Available memory: {psutil.virtual_memory().available / (1024**3):.2f} GB')
-        with h5py.File(
-            h5_path,
-            "r",
-            rdcc_nbytes= 50 * 1024 ** 3,
-            libver="latest",
-        ) as file:
-        #with h5py.File(h5_path, 'r', driver='core', backing_store=False) as file:
-            # labels = [int(group['label'][()]) for group in file.values()]
-            ic(file['0']['embeddings'][()].shape)
 
-            # counter = Counter(labels)
-            # ic(counter)
+        buffs = []
+        for h5_path in h5_paths:
+            with open(h5_path, "rb") as _f:
+                buffs.append(_f.read())
+        
+        labels = []
+        for _buf in buffs:
+            with h5py.File.in_memory(file_image=_buf) as file: 
+                labels.extend([int(group['label'][()]) for group in file.values()])
 
-            # unexpected = set(counter) - (self.pos_labels | self.neg_labels)
-            # if unexpected:
-            #     ic(f"Warning: unexpected labels {unexpected}")
+        counter = Counter(labels)
+        ic(counter)
 
-            # self._compute_weights(counter, pos_weight)
-            # ic(self.weights)
-            self.weights = {0: 1, 1: 1}
+        unexpected = set(counter) - (self.pos_labels | self.neg_labels)
+        if unexpected:
+            ic(f"Warning: unexpected labels {unexpected}")
 
-            items = []
-            for i, group in enumerate(tqdm(file.values(), desc="Loading embeddings")):
-                if i % 200 == 0: 
-                    print(f'Available memory: {psutil.virtual_memory().available / (1024**3):.2f} GB')
-                label = int(group['label'][()])
-                if label not in self.pos_labels | self.neg_labels:
-                    continue
-                label = int(label in self.pos_labels)
-                embeddings = torch.from_numpy(group['embeddings'][()])
-                weight = torch.tensor([self.weights[label]], dtype=torch.float32)
-                label_tensor = torch.tensor([label], dtype=torch.float32)
-                items.append((embeddings, label_tensor, weight))
-            ic(len(items))
+        self._compute_weights(counter, pos_weight)
+        ic(self.weights)
+        
+        items = []
+        for _buf in buffs:
+            with h5py.File.in_memory(file_image=_buf) as file:
+                for i, group in enumerate(tqdm(file.values(), desc="Iterating embeddings.")):
+                    label = int(group['label'][()])
+                    if label not in self.pos_labels | self.neg_labels:
+                        continue
+                    label = int(label in self.pos_labels)
+                    images = torch.from_numpy(group['images'][()])
+                    tiles = torch.from_numpy(group['tiles'][()])
+                    weight = torch.tensor([self.weights[label]], dtype=torch.float32)
+                    label_tensor = torch.tensor([label], dtype=torch.float32)
+                    all_images = torch.cat([images, tiles], dim=0)
+                    instance_type = torch.cat([torch.full((images.shape[0],), 0, dtype=torch.long), torch.full((tiles.shape[0],), 1, dtype=torch.long)], dim=0)
+                    items.append((all_images, label_tensor, weight, instance_type))  
+                ic(len(items))
 
         self.batches = [batch for batch in tqdm(collate(items, batch_size))] 
         ic(len(self.batches))
@@ -66,7 +68,6 @@ class EmbeddingsDataset(Dataset):
 
     def __getitem__(self, idx):
         x_batch = self.batches[idx][0]
-        ic(x_batch.numel() * x_batch.element_size())
         return self.batches[idx]
 
 if __name__ == "__main__":
