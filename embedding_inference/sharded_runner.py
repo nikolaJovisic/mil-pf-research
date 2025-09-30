@@ -16,22 +16,33 @@ def shard_indices(n, world_size, rank):
 def run_worker(rank, split, world_size):
     torch.cuda.set_device(rank)
     #limits = {'train': 2000, 'valid': 300, 'test': 500}
-    ds_full = MammoDataset(
-        DatasetEnum.EMBED,
-        return_mode=ReturnMode.BREAST_TILES_LABEL,
-        labels=[1, 4, 5, 6],
-        convert_to=ConvertTo.RGB_TENSOR_IMGNET_NORM,
-        split=split,
-        tile_size=518,
-        final_resize=518
-    )
-    idx = shard_indices(len(ds_full), world_size, rank)
-    ds = Subset(ds_full, idx)
+    ds_params = {
+        "dataset": DatasetEnum.EMBED,
+        "labels": [1, 4, 5, 6],
+        "convert_to": ConvertTo.RGB_TENSOR_IMGNET_NORM,
+        "split": split,
+        "tile_size": 518,
+        "final_resize": 518,
+        "tile_overlap": 0.5
+    }
+
+    ds_images_params = ds_params.copy()
+    ds_images_params["return_mode"] = ReturnMode.BREAST_LABEL
+
+    ds_tiles_params = ds_params.copy()
+    ds_tiles_params["return_mode"] = ReturnMode.BREAST_TILES_LABEL
+
+    ds_images_full = MammoDataset(**ds_images_params)
+    ds_tiles_full = MammoDataset(**ds_tiles_params)
+
+    idx = shard_indices(len(ds_images_full), world_size, rank)
+    ds_images = Subset(ds_images_full, idx)
+    ds_tiles = Subset(ds_tiles_full, idx)
     cfg = OmegaConf.load('/home/nikola.jovisic.ivi/nj/mammo_filter/embedding_inference/config.yaml')
     cfg.run_name = f'{split}-gpu{rank}'
-    embedding_inference = EmbeddingInference(ds, cfg, device=f'cuda:{rank}')
-    embedding_inference.run_images()
+    embedding_inference = EmbeddingInference(ds_images, ds_tiles, cfg, device=f'cuda:{rank}')
     embedding_inference.run_tiles()
+    embedding_inference.run_images()
 
 def merge_split(split, world_size):
     base_cfg = OmegaConf.load('/home/nikola.jovisic.ivi/nj/mammo_filter/embedding_inference/config.yaml')

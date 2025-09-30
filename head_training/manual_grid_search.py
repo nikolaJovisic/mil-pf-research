@@ -13,8 +13,8 @@ from utils.evaluation_report import EvaluationReport
 def get_param_grid():
     return {
         'hidden_dim': [4, 6, 8, 10, 12, 14, 16, 32, 64, 128],
-        'shared0': [True, False],
-        'shared1': [True, False]
+        'share0': [True, False],
+        'share1': [True, False]
     }
 
 def set_nested_attr(obj, key_path, value):

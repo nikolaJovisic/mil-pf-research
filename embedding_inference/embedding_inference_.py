@@ -9,12 +9,12 @@ from omegaconf import OmegaConf
 #from embedding_inference.model.build import build_model
 from dinov2_wrapper import build_model
 from utils.serialization import save_embedding_inference
-from batched_dataloader import get_batched_dataloader, BatchEnum
+from batched_dataloader import get_batched_dataloader
 import numpy as np
 from itertools import islice
 
 class EmbeddingInference:
-    def __init__(self, dataset, cfg=None, device='cuda'):        
+    def __init__(self, ds_images, ds_tiles, cfg=None, device='cuda'):        
         if cfg is None:
             cfg_path = Path(__file__).parent / "config.yaml"
             self.cfg = OmegaConf.load(cfg_path)
@@ -23,7 +23,8 @@ class EmbeddingInference:
         
         self.device = device
         self.model = self._build_model()
-        self.dataset = dataset
+        self.ds_images = ds_images
+        self.ds_tiles = ds_tiles
         self.output_dir = os.path.join(self.cfg.embeddings_root, self.cfg.run_name)
         os.makedirs(self.output_dir, exist_ok=True)
         self.hdf5_out_path = os.path.join(self.output_dir, 'embeddings.hdf5')
@@ -31,19 +32,19 @@ class EmbeddingInference:
         
     def run_images(self):
         dataloader = get_batched_dataloader(
-            self.dataset,
-            BatchEnum.IMAGE,
+            self.ds_images,
             batch_size=self.cfg.batch_size,
-            num_workers=self.cfg.loader_workers
+            num_workers=self.cfg.loader_workers,
+            tiles=False
         )
         self._run(dataloader, 'images')
 
     def run_tiles(self):
         dataloader = get_batched_dataloader(
-            self.dataset,
-            BatchEnum.TILE,
+            self.ds_tiles,
             batch_size=self.cfg.batch_size,
-            num_workers=self.cfg.loader_workers
+            num_workers=self.cfg.loader_workers,
+            tiles=True
         )
         self._run(dataloader, 'tiles')
 

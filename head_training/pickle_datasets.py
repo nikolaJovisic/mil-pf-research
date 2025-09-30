@@ -1,14 +1,14 @@
 import pickle
 from embeddings_dataset import EmbeddingsDataset
 
-batch_size = 2**15
+batch_size = 2**18
 pos_weight = 1.0
 
 def get_dataset_cfg():
-    embeddings_root = '/lustre/nj/dinov3-embeddings' 
+    embeddings_root = '/lustre/nj/cvpr2026' 
 
     def get_path(split):
-        return f'{embeddings_root}/v2-giant/{split}/embeddings.hdf5'
+        return f'{embeddings_root}/overlap50/{split}/embeddings.hdf5'
 
     pos_labels = [4, 5, 6]
     neg_labels = [1]
@@ -24,4 +24,4 @@ valid_ds = EmbeddingsDataset(*get_dataset_cfg()['valid'], batch_size, pos_weight
 test_ds = EmbeddingsDataset(*get_dataset_cfg()['test'], batch_size, pos_weight)
 datasets = (train_ds, valid_ds, test_ds)
 
-pickle.dump(datasets, open('datasets.pkl', 'wb'))
+pickle.dump(datasets, open('overlap50.pkl', 'wb'))
