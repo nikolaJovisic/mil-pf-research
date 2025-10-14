@@ -12,9 +12,11 @@ from utils.evaluation_report import EvaluationReport
 
 def get_param_grid():
     return {
-        'hidden_dim': [4, 6, 8, 10, 12, 14, 16, 32, 64, 128],
-        'share0': [True, False],
-        'share1': [True, False]
+        'gl_hidden_dim': [4, 8, 16],
+        'lc_hidden_dim': [4, 8, 16],
+        'num_latents': [1, 2],
+        'mlp_out': [True, False],
+        'runs': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     }
 
 def set_nested_attr(obj, key_path, value):

@@ -35,7 +35,7 @@ def train_head(run_id, cfg=None, gpu_id=None, just_evaluate=False):
     
     OmegaConf.save(cfg, config_file)
 
-    datasets = pickle.load(open('overlap50.pkl', 'rb'))
+    datasets = pickle.load(open('explora.pkl', 'rb'))
     train_ds, valid_ds, test_ds = datasets
     
     #root = '/lustre/nj/dinov3-embeddings/dinov3-s-512-embed'

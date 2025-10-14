@@ -1,13 +1,17 @@
 logs_path: /home/nikola.jovisic.ivi/nj/mammo_filter/head_training/logs
 
-input_dim: 1536 
+input_dim: 768 #1536 
 model_type: trex 
-hidden_dim: 8 #always in grid search
+hidden_dim: #always in grid search
 
 #trex
-share0: #
-share1: #
-
+lc_hidden_dim: 4
+gl_hidden_dim: 4
+num_latents: 1
+mlp_out: false
+#share0: false #
+#share1: false #
+#mode: both
 
 #velo
 full_state: true 

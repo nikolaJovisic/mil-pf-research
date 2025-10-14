@@ -5,7 +5,7 @@ from transformers import AutoModel, AutoImageProcessor
 class DinoV2(nn.Module):
     def __init__(self, device):
         super().__init__()
-        model_name = "dinov2_vitg14_reg"
+        model_name = "dinov2_vitb14"
         self.device = torch.device(device)
         self.model = torch.hub.load('facebookresearch/dinov2', model_name).to(self.device).eval()
 
