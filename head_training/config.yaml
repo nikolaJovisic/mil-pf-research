@@ -1,11 +1,14 @@
-logs_path: /home/nikola.jovisic.ivi/nj/mammo_filter/head_training/logs
+logs_path: /home/slobodan.ilic.ivi/nj/mammo_filter/head_training/logs
 
-input_dim: 768 #1536 
+#pickle_path: /lustre/nj/cvpr2026/pickles/vitb-explora-baseline.pkl #explora-v2-training_30000.pkl
+# pickle_path: /lustre/nj/cvpr2026/pickles/training_30000.pkl
+
+input_dim: 1536 #768 
 model_type: trex 
 hidden_dim: #always in grid search
 
 #trex
-lc_hidden_dim: 4
+lc_hidden_dim: 8 
 gl_hidden_dim: 4
 num_latents: 1
 mlp_out: false
@@ -43,5 +46,5 @@ epochs: 700
 patience: 50 
 
 #saving
-load_path:
+load_path: #/lustre/nj/cvpr2026/head_weights/9e684211.pth
 save_path: 

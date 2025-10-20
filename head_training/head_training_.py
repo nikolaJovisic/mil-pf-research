@@ -16,6 +16,25 @@ from utils.evaluate import evaluate
 from model.aggregation import Aggregation
 from model.model_ import build_model
 import os
+import copy
+
+
+def merge_embedding_datasets_in_memory(ds1, ds2):
+    assert len(ds1) == len(ds2), "Datasets must have the same number of batches."
+
+    merged_batches = []
+    for (x1, y1, g1, w1, t1), (x2, y2, g2, w2, t2) in zip(ds1.batches, ds2.batches):
+        assert torch.allclose(y1, y2), "Mismatched labels."
+        assert torch.all(t1 == t2), "Mismatched instance types."
+
+        # Concatenate embeddings along feature dimension
+        merged_x = torch.cat([x1, x2], dim=1)
+
+        merged_batches.append((merged_x, y1, g1, w1, t1))
+
+    merged_dataset = ds1
+    merged_dataset.batches = merged_batches
+    return merged_dataset
 
 def train_head(run_id, cfg=None, gpu_id=None, just_evaluate=False):
     if cfg is None:
@@ -35,9 +54,16 @@ def train_head(run_id, cfg=None, gpu_id=None, just_evaluate=False):
     
     OmegaConf.save(cfg, config_file)
 
-    datasets = pickle.load(open('explora.pkl', 'rb'))
-    train_ds, valid_ds, test_ds = datasets
-    
+    baseline_datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/vitb-explora-baseline.pkl', 'rb'))
+    explora_datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/explora-v2-training_30000.pkl', 'rb'))
+
+    baseline_train_ds, baseline_valid_ds, baseline_test_ds = baseline_datasets
+    explora_train_ds, explora_valid_ds, explora_test_ds = explora_datasets
+
+    train_ds = merge_embedding_datasets_in_memory(baseline_train_ds, explora_train_ds)
+    valid_ds = merge_embedding_datasets_in_memory(baseline_valid_ds, explora_valid_ds)
+    test_ds = merge_embedding_datasets_in_memory(baseline_test_ds, explora_test_ds)
+
     #root = '/lustre/nj/dinov3-embeddings/dinov3-s-512-embed'
     # root = '/home/nikola.jovisic.ivi/nj/mammo_filter'
     # train_ds = PrecollatedDataset(f'{root}/precollated/train', device)
@@ -49,14 +75,14 @@ def train_head(run_id, cfg=None, gpu_id=None, just_evaluate=False):
         valid_ds = FlattenGroup(valid_ds)
     
     model = _train(train_ds, valid_ds, cfg, device, log_file, just_evaluate)
-    return evaluate(model, test_ds, device)
+    return evaluate(model, test_ds, device), evaluate(model, valid_ds, device), evaluate(model, train_ds, device)
     
         
 def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
     model = build_model(cfg, device)
 
     if cfg.load_path is not None:
-        model.load_state_dict(torch.load(cfg.load_path), strict=False)
+        model.load_state_dict(torch.load(cfg.load_path, map_location=device), strict=False)
         print(f'Model loaded from {cfg.load_path}.')
         
         if cfg.freeze_whole_image_branch:
@@ -120,7 +146,7 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
 
         if val_auc > best_val_auc:
             best_val_auc = val_auc
-            best_model_state = model.state_dict()
+            best_model_state = copy.deepcopy(model.state_dict())
             patience_counter = 0
         else:
             patience_counter += 1

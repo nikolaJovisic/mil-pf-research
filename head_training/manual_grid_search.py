@@ -12,11 +12,7 @@ from utils.evaluation_report import EvaluationReport
 
 def get_param_grid():
     return {
-        'gl_hidden_dim': [4, 8, 16],
-        'lc_hidden_dim': [4, 8, 16],
-        'num_latents': [1, 2],
-        'mlp_out': [True, False],
-        'runs': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        'runs': list(range(50))
     }
 
 def set_nested_attr(obj, key_path, value):
@@ -45,30 +41,36 @@ def run_training(param_grid, param_list, gpu_id, save_dir):
     with open(output_file, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(
-            ['param_combo_id'] + list(param_grid.keys()) + summary_keys
+            ['param_combo_id'] + list(param_grid.keys()) + summary_keys + ['valid_auc'] + ['train_auc']
         )
+
+    cfg = load_cfg()
+    print('Config loaded.')
 
     for param_combination in param_list:
         param_combo_id = str(uuid.uuid4())[:8]
+        #cfg.save_path = f"/lustre/nj/cvpr2026/head_weights/{param_combo_id}.pth"
 
-        cfg = load_cfg()
         for key_path, value in param_combination.items():
             set_nested_attr(cfg, key_path, value)
 
         if cfg.flatten and cfg.aggregation == Aggregation.ATTENTION:
             continue
 
-        report = train_head(
+        test_report, valid_report, train_report = train_head(
             param_combo_id,
             cfg,
             gpu_id,
         )
 
-        summary = report.summary()
+        test_summary = test_report.summary()
+        valid_summary = valid_report.summary()
+        train_summary = train_report.summary()
+        
         row = [param_combo_id] + [
             val.name if hasattr(val, 'name') else val
             for val in param_combination.values()
-        ] + [summary[k] for k in summary_keys]
+        ] + [test_summary[k] for k in summary_keys] + [valid_summary['auc']] + [train_summary['auc']]
 
         with open(output_file, mode='a', newline='') as file:
             writer = csv.writer(file)
