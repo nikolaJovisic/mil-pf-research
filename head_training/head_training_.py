@@ -17,6 +17,8 @@ from model.aggregation import Aggregation
 from model.model_ import build_model
 import os
 import copy
+from icecream import ic
+import math
 
 
 def merge_embedding_datasets_in_memory(ds1, ds2):
@@ -24,6 +26,7 @@ def merge_embedding_datasets_in_memory(ds1, ds2):
 
     merged_batches = []
     for (x1, y1, g1, w1, t1), (x2, y2, g2, w2, t2) in zip(ds1.batches, ds2.batches):
+        ic(len(y1), len(y2), x1.shape, x2.shape, g1.shape, g2.shape, w1.shape, w2.shape, t1.shape, t2.shape)
         assert torch.allclose(y1, y2), "Mismatched labels."
         assert torch.all(t1 == t2), "Mismatched instance types."
 
@@ -54,15 +57,21 @@ def train_head(run_id, cfg=None, gpu_id=None, just_evaluate=False):
     
     OmegaConf.save(cfg, config_file)
 
-    baseline_datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/vitb-explora-baseline.pkl', 'rb'))
-    explora_datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/explora-v2-training_30000.pkl', 'rb'))
+    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/rsna-v2.pkl', 'rb'))
+    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/bsexp/v2-giant-inf.pkl', 'rb'))
+    datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/bsexp/medsiglip-inf.pkl', 'rb'))
+    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/vindr-msl.pkl', 'rb'))
+    train_ds, valid_ds, test_ds = datasets
 
-    baseline_train_ds, baseline_valid_ds, baseline_test_ds = baseline_datasets
-    explora_train_ds, explora_valid_ds, explora_test_ds = explora_datasets
+    # v2_datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/bsexp/v2-giant-inf.pkl', 'rb'))
+    # msl_datasets= pickle.load(open('/lustre/nj/cvpr2026/pickles/bsexp/medsiglip-inf.pkl', 'rb'))
 
-    train_ds = merge_embedding_datasets_in_memory(baseline_train_ds, explora_train_ds)
-    valid_ds = merge_embedding_datasets_in_memory(baseline_valid_ds, explora_valid_ds)
-    test_ds = merge_embedding_datasets_in_memory(baseline_test_ds, explora_test_ds)
+    # v2_train_ds, v2_valid_ds, v2_test_ds = v2_datasets
+    # msl_train_ds, msl_valid_ds, msl_test_ds = msl_datasets
+
+    # train_ds = merge_embedding_datasets_in_memory(v2_train_ds, msl_train_ds)
+    # valid_ds = merge_embedding_datasets_in_memory(v2_valid_ds, msl_valid_ds)
+    # test_ds = merge_embedding_datasets_in_memory(v2_test_ds, msl_test_ds)
 
     #root = '/lustre/nj/dinov3-embeddings/dinov3-s-512-embed'
     # root = '/home/nikola.jovisic.ivi/nj/mammo_filter'
@@ -70,15 +79,15 @@ def train_head(run_id, cfg=None, gpu_id=None, just_evaluate=False):
     # valid_ds = PrecollatedDataset(f'{root}/precollated/valid', device)
     # test_ds = PrecollatedDataset(f'{root}/precollated/test', device)
 
-    if cfg.flatten:
-        train_ds = FlattenGroup(train_ds)
-        valid_ds = FlattenGroup(valid_ds)
+    # if cfg.flatten:
+    #     train_ds = FlattenGroup(train_ds)
+    #     valid_ds = FlattenGroup(valid_ds)
     
-    model = _train(train_ds, valid_ds, cfg, device, log_file, just_evaluate)
+    model = _train(train_ds, valid_ds, cfg, device, log_file, just_evaluate, run_id)
     return evaluate(model, test_ds, device), evaluate(model, valid_ds, device), evaluate(model, train_ds, device)
     
         
-def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
+def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate, run_id):
     model = build_model(cfg, device)
 
     if cfg.load_path is not None:
@@ -97,12 +106,12 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
     optimizer = optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     criterion = nn.BCEWithLogitsLoss(reduction='none')
 
+
     with open(log_file, 'w') as f:
         f.write('epoch,train_loss,val_loss,train_auc,val_auc,train_spec@85,val_spec@85\n')
 
     best_val_auc = float('-inf')
     patience_counter = 0
-
 
     for epoch in range(cfg.epochs):
         optimizer.zero_grad()
@@ -118,8 +127,7 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
             train_loss += loss.item()
 
             loss.backward()
-
-        optimizer.step()
+            optimizer.step()
 
         model.eval()
         val_loss = 0
@@ -144,7 +152,7 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
         with open(log_file, 'a') as f:
             f.write(f'{epoch},{train_loss},{val_loss},{train_auc},{val_auc},{train_spec_at_85},{val_spec_at_85}\n')
 
-        if val_auc > best_val_auc:
+        if val_auc - best_val_auc > 0.001:
             best_val_auc = val_auc
             best_model_state = copy.deepcopy(model.state_dict())
             patience_counter = 0
@@ -154,7 +162,7 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate):
                 break
 
     if cfg.save_path is not None:
-        torch.save(best_model_state, cfg.save_path)
+        torch.save(best_model_state, os.path.join(cfg.save_path, f'{run_id}.pth'))
         print(f'Model saved to {cfg.save_path}.')
 
     model.load_state_dict(best_model_state)

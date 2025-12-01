@@ -1,23 +1,24 @@
-model:
-  arch: vit_base
-  num_register_tokens: 0
-  patch_size: 14
-  drop_path_rate: 0.0
-  ffn_layer: mlp
-  weights: /lustre/nj/explora/eval/training_0/extracted.pt
-  layerscale: 1.0e-05
-  block_chunks: 0
-  qkv_bias: true
-  proj_bias: true
-  ffn_bias: true  
-  interpolate_antialias: false
-  interpolate_offset: 0.1
-  drop_path_uniform: true
-  img_size: 518 
+# model:
+#   arch: vit_base
+#   num_register_tokens: 0
+#   patch_size: 14
+#   drop_path_rate: 0.0
+#   ffn_layer: mlp
+#   weights: /lustre/nj/cvpr2026/explora/v2/eval/training_57000/extracted.pt
+#   layerscale: 1.0e-05
+#   block_chunks: 0
+#   qkv_bias: true
+#   proj_bias: true
+#   ffn_bias: true  
+#   interpolate_antialias: false
+#   interpolate_offset: 0.1
+#   drop_path_uniform: true
+#   img_size: 518 
   
-embeddings_root: /lustre/nj/cvpr2026/vitb-explora-baseline
+base_path: /lustre/nj/cvpr2026/ds_prep/vindr
+embeddings_root: /lustre/nj/cvpr2026/embeddings/vindr-mammoclip
 run_name: 
-batch_size: 4
+batch_size: 1
 loader_workers: 0 
 #save_all:
 

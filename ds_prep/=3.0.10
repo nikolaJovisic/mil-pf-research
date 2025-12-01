@@ -1,0 +1,2 @@
+Looking in indexes: https://pypi.org/simple, https://pypi.ngc.nvidia.com
+Requirement already satisfied: gdcm in /home/nikola.jovisic.ivi/.conda/envs/dinov3/lib/python3.12/site-packages (1.1)

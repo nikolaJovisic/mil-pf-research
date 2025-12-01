@@ -12,7 +12,7 @@ from utils.evaluation_report import EvaluationReport
 
 def get_param_grid():
     return {
-        'runs': list(range(50))
+       'runs': list(range(18)),
     }
 
 def set_nested_attr(obj, key_path, value):
@@ -41,7 +41,7 @@ def run_training(param_grid, param_list, gpu_id, save_dir):
     with open(output_file, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(
-            ['param_combo_id'] + list(param_grid.keys()) + summary_keys + ['valid_auc'] + ['train_auc']
+            ['param_combo_id'] + list(param_grid.keys()) + summary_keys + ['valid_auc'] + ['train_auc'] + ['valid_spec_90']
         )
 
     cfg = load_cfg()
@@ -70,7 +70,7 @@ def run_training(param_grid, param_list, gpu_id, save_dir):
         row = [param_combo_id] + [
             val.name if hasattr(val, 'name') else val
             for val in param_combination.values()
-        ] + [test_summary[k] for k in summary_keys] + [valid_summary['auc']] + [train_summary['auc']]
+        ] + [test_summary[k] for k in summary_keys] + [valid_summary['auc']] + [train_summary['auc']] + [valid_summary['spec_90']]
 
         with open(output_file, mode='a', newline='') as file:
             writer = csv.writer(file)
@@ -105,6 +105,8 @@ def run_distributed_training(results_dir):
     
     for combo in all_combinations:
         combo_dict = dict(zip(keys, combo))
+        # if combo_dict['lc_hidden_dim'] > combo_dict['gl_hidden_dim']:
+        #     continue
         param_dicts.append(combo_dict)
 
     chunks = split_balanced(param_dicts, num_gpus)

@@ -5,6 +5,26 @@ from utils.evaluation_report import EvaluationReport
 
 def evaluate(model, dataset, device='cuda'):
     model.eval()
+
+    ###############
+    #FLOPS
+    # x = torch.randn(42, 1152).to(device)
+    # group = torch.zeros(42, dtype=torch.long, device=device)
+    # instance_type = torch.cat([
+    #     torch.ones(40, dtype=torch.long, device=device),
+    #     torch.zeros(2, dtype=torch.long, device=device),
+    # ])
+
+
+    # from torchprofile import profile_macs
+
+    # macs = profile_macs(model, (x, group, instance_type))
+    # print("MACs:", macs)
+    # print("FLOPs:", macs * 2)
+
+
+    ################
+
     all_logits = []
     all_labels = []
     # all_fused = []

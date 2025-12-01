@@ -5,11 +5,8 @@ import threading
 import queue
 from torch.utils.data import IterableDataset, DataLoader
 
-BASE_PATH = "/lustre/nj/cvpr2026/ds_prep"
-WORLD_SIZE = 6
-
 class ShardedMammoIterable(IterableDataset):
-    def __init__(self, split: str, rank: int, tiles: bool, num_splits: int = None, prefetch: int = 2):
+    def __init__(self, split: str, rank: int, tiles: bool, base_path, world_size = 6, num_splits: int = None, prefetch: int = 2):
         self.split = split
         self.rank = rank
         self.tiles = tiles
@@ -17,7 +14,7 @@ class ShardedMammoIterable(IterableDataset):
         self.prefetch = prefetch
 
         subdir = "tiles" if tiles else "images"
-        self.data_dir = os.path.join(BASE_PATH, f"ws{WORLD_SIZE}", f"r{rank}", split, subdir)
+        self.data_dir = os.path.join(base_path, f"ws{world_size}", f"r{rank}", split, subdir)
 
         if not os.path.isdir(self.data_dir):
             raise FileNotFoundError(f"Dataset directory not found: {self.data_dir}")
@@ -49,7 +46,18 @@ class ShardedMammoIterable(IterableDataset):
             batch = q.get()
             if batch is None:
                 break
-            yield batch
+
+            num_splits = 16
+            images, ids, labels = batch
+            n = len(images)
+            step = max(1, n // num_splits)
+
+            for i in range(0, n, step):
+                yield (
+                    images[i:min(i + step, n)],
+                    ids[i:min(i + step, n)],
+                    labels[i:min(i + step, n)],
+                )
 
     def _split_by_groups(self, images, ids, labels, num_splits):
         ids = np.array(ids)

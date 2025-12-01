@@ -6,11 +6,16 @@ from torch.utils.data import DataLoader
 import h5py
 from pathlib import Path
 from omegaconf import OmegaConf
-#for custom model:
-from model.build import build_model
+#for custom model
+#from model.build import build_model
 #for dinov2 model:
 #from dinov2_wrapper import build_model
-from utils.serialization import save_embedding_inference
+#from medsiglip_wrapper import build_model
+# from eval_gmic_v2 import build_model
+#from bioclip_wrapper import build_model
+from mammoclip_wrapper import build_model
+# from dinov3_wrapper import build_model
+from utils_.serialization import save_embedding_inference
 #from batched_dataloader import get_batched_dataloader
 import numpy as np
 from itertools import islice
@@ -42,6 +47,7 @@ class EmbeddingInference:
         #     num_workers=self.cfg.loader_workers,
         #     tiles=False
         # )
+        # self._run(dataloader, 'images')
         self._run(self.ds_images, 'images')
 
     def run_tiles(self):
@@ -51,6 +57,7 @@ class EmbeddingInference:
         #     num_workers=self.cfg.loader_workers,
         #     tiles=True
         # )
+        # self._run(dataloader, 'tiles')
         self._run(self.ds_tiles, 'tiles')
 
     def _run(self, loader, subgroup_name):
@@ -66,7 +73,6 @@ class EmbeddingInference:
                     #print("Allocated:", torch.cuda.memory_allocated(0) / 1024**2, "MB")
                     #print("Reserved:", torch.cuda.memory_reserved(0) / 1024**2, "MB")
                     #for dinov2 model:
-                    #images = batch_images
 
                     embeddings = self.model(images)
                     embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
@@ -113,11 +119,11 @@ class EmbeddingInference:
 
     def _build_model(self):
         #for dinov2 model:
-        #return build_model(self.device) #, self.cfg.save_all)
+        return build_model(self.device) #, self.cfg.save_all)
     
         #for custom model: 
-        model = build_model(self.cfg.model)
-        state_dict = torch.load(self.cfg.model.weights, map_location="cpu")
-        model.load_state_dict(state_dict)
-        model.eval().to(self.device)
-        return model
+        # model = build_model(self.cfg.model)
+        # state_dict = torch.load(self.cfg.model.weights, map_location="cpu")
+        # model.load_state_dict(state_dict)
+        # model.eval().to(self.device)
+        # return model

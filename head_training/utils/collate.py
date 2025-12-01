@@ -26,6 +26,7 @@ def collate(dataset, batch_size):
 
             group_size = x.size(0)
 
+
             if instance_count + group_size > batch_size:
                 buffered_group = (x, y, w, instance_type)
                 break
@@ -49,5 +50,4 @@ def collate(dataset, batch_size):
         y = torch.stack(y_list) if y_list else torch.empty((0,))
         w = torch.stack(w_list) if w_list else torch.empty((0,))
         instance_type = torch.cat(type_list, dim=0) if type_list else torch.empty((0,), dtype=torch.long)
-
         yield x_batch, y, w, group, instance_type

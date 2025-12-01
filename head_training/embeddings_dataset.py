@@ -8,11 +8,13 @@ from icecream import ic
 from collections import Counter
 from utils.collate import collate
 import psutil
+from utils.flatten_group import FlattenGroup
 
 class EmbeddingsDataset(Dataset):
-    def __init__(self, h5_paths, pos_labels, neg_labels, batch_size, pos_weight=1.0):
+    def __init__(self, h5_paths, pos_labels, neg_labels, batch_size, flatten=False, pos_weight=1.0):
         self.pos_labels = set(pos_labels)
         self.neg_labels = set(neg_labels)
+        self.flatten = flatten
 
 
         buffs = []
@@ -44,13 +46,16 @@ class EmbeddingsDataset(Dataset):
                         continue
                     label = int(label in self.pos_labels)
                     images = torch.from_numpy(group['images'][()])
-                    tiles = torch.from_numpy(group['tiles'][()])
+                    tiles = torch.from_numpy(group['tiles'][()]) if 'tiles' in group else torch.empty((0, images.shape[1]))
                     weight = torch.tensor([self.weights[label]], dtype=torch.float32)
                     label_tensor = torch.tensor([label], dtype=torch.float32)
                     all_images = torch.cat([images, tiles], dim=0)
                     instance_type = torch.cat([torch.full((images.shape[0],), 0, dtype=torch.long), torch.full((tiles.shape[0],), 1, dtype=torch.long)], dim=0)
                     items.append((all_images, label_tensor, weight, instance_type))  
                 ic(len(items))
+            
+        if self.flatten:
+            items = FlattenGroup(items)
 
         self.batches = [batch for batch in tqdm(collate(items, batch_size))] 
         ic(len(self.batches))

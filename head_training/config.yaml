@@ -1,17 +1,20 @@
-logs_path: /home/slobodan.ilic.ivi/nj/mammo_filter/head_training/logs
+logs_path: /home/nikola.jovisic.ivi/nj/mammo_filter/head_training/logs
 
 #pickle_path: /lustre/nj/cvpr2026/pickles/vitb-explora-baseline.pkl #explora-v2-training_30000.pkl
 # pickle_path: /lustre/nj/cvpr2026/pickles/training_30000.pkl
 
-input_dim: 1536 #768 
-model_type: trex 
-hidden_dim: #always in grid search
+input_dim: 1152 #1152 #1536 #1152 #768  #2304 
+model_type: trex #_both_agg
+num_projs: 2
+out_layers: 1
 
 #trex
-lc_hidden_dim: 8 
-gl_hidden_dim: 4
+gl_hidden_dim: 8
+lc_hidden_dim: 8
+signal_dim: 256
 num_latents: 1
 mlp_out: false
+explora_proj_dim: 2
 #share0: false #
 #share1: false #
 #mode: both
@@ -36,15 +39,22 @@ prehidden_dim: 32
 #probably not going to edit much
 pos_weight: 1.0
 freeze_whole_image_branch: false
-flatten: false
+flatten: true 
 
 #training
 #batch_size: 256 #4096 #2e16  
-lr: 0.02
+lr: 0.002
 weight_decay: 1e-4
 epochs: 700
-patience: 50 
+patience: 20
+
+# vindr v2 de0dcf71.pth
+# vindr msl 682aca92.pth
+# rsna v2 ad2092ef.pth
+# rsna msl 6511c691.pth
+# embed v2 7dbc8552.pth
+# embed msl 30ac2295.pth
 
 #saving
-load_path: #/lustre/nj/cvpr2026/head_weights/9e684211.pth
-save_path: 
+load_path: /lustre/nj/cvpr2026/head_weights/30ac2295.pth #/lustre/nj/cvpr2026/head_weights/407f6532.pth #/lustre/nj/cvpr2026/head_weights/3496e8f3.pth #/lustre/nj/cvpr2026/head_weights/3b7fc1f3.pth #26fc3bf5.pth #407f6532.pth #embed-msl #3496e8f3.pth #embed-v2
+save_path: #/lustre/nj/cvpr2026/head_weights/
