@@ -15,8 +15,8 @@
 #   drop_path_uniform: true
 #   img_size: 518 
   
-base_path: /lustre/nj/cvpr2026/ds_prep/vindr
-embeddings_root: /lustre/nj/cvpr2026/embeddings/vindr-mammoclip
+base_path: /lustre/nj/cvpr2026/ds_prep/vindr-density
+embeddings_root: /lustre/nj/cvpr2026/embeddings/vindr-density-msl
 run_name: 
 batch_size: 1
 loader_workers: 0 

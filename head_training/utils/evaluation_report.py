@@ -38,6 +38,11 @@ class EvaluationReport:
 
         return 0.0
     
+    def balanced_accuracy(self, threshold):
+        sens = self.sensitivity(threshold)
+        spec = self.specificity(threshold)
+        return 0.5 * (sens + spec)
+    
     def auc(self):
         return roc_auc_score(self.targets, self.probs)
 
@@ -68,6 +73,7 @@ class EvaluationReport:
             summary[f'opt_th_{suffix}'] = threshold
             summary[f'spec_{suffix}'] = self.specificity(threshold)
             summary[f'sens_{suffix}'] = self.sensitivity(threshold)
+            summary[f'bal_acc_{suffix}'] = self.balanced_accuracy(threshold)
 
         for sens_level in self.FIXED_SENSITIVITIES:
             summary[f'spec_{int(sens_level * 100)}'] = self.specificity_at(fixed_sensitivity=sens_level)
@@ -83,7 +89,8 @@ class EvaluationReport:
             keys.extend([
                 f'opt_th_{suffix}',
                 f'spec_{suffix}',
-                f'sens_{suffix}'
+                f'sens_{suffix}',
+                f'bal_acc_{suffix}'
             ])
 
         for sens in EvaluationReport.FIXED_SENSITIVITIES:

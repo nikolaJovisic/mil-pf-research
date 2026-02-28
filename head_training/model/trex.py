@@ -29,7 +29,7 @@ class Trex(nn.Module):
                 nn.Linear(fused_dim// 2, 1)
             )
         else:
-            self.linear_out = nn.Linear(fused_dim, 1)
+            self.linear_out = nn.Linear(fused_dim, cfg.num_classes) 
 
     def forward(self, x, group, instance_type, return_attn_maps=False):
         is_whole = instance_type == 0

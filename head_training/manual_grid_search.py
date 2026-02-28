@@ -9,10 +9,11 @@ import sys
 
 from head_training_ import train_head, load_cfg, Aggregation 
 from utils.evaluation_report import EvaluationReport
+# from utils.multiclass_evaluation_report import EvaluationReport
 
 def get_param_grid():
     return {
-       'runs': list(range(18)),
+       'runs': list(range(36)),
     }
 
 def set_nested_attr(obj, key_path, value):
@@ -71,6 +72,7 @@ def run_training(param_grid, param_list, gpu_id, save_dir):
             val.name if hasattr(val, 'name') else val
             for val in param_combination.values()
         ] + [test_summary[k] for k in summary_keys] + [valid_summary['auc']] + [train_summary['auc']] + [valid_summary['spec_90']]
+        # ] + [test_summary[k] for k in summary_keys] + [valid_summary['accuracy']] + [train_summary['accuracy']]
 
         with open(output_file, mode='a', newline='') as file:
             writer = csv.writer(file)

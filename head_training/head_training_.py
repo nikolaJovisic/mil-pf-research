@@ -4,21 +4,22 @@ from icecream import ic
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset, DataLoader
 import torch
-import torch.nn as nn
+import torch.nn as nn 
 import torch.optim as optim
 import numpy as np
 import random
 from omegaconf import OmegaConf
 from pathlib import Path
-from precollated_dataset import PrecollatedDataset
-from utils.flatten_group import FlattenGroup
-from utils.evaluate import evaluate
-from model.aggregation import Aggregation
-from model.model_ import build_model
+from head_training.utils.flatten_group import FlattenGroup
+# from head_training.utils.multiclass_evaluate import evaluate
+from head_training.utils.evaluate import evaluate
+from head_training.model.aggregation import Aggregation
+from head_training.model.model_ import build_model
 import os
 import copy
 from icecream import ic
 import math
+from einops import rearrange
 
 
 def merge_embedding_datasets_in_memory(ds1, ds2):
@@ -57,10 +58,12 @@ def train_head(run_id, cfg=None, gpu_id=None, just_evaluate=False):
     
     OmegaConf.save(cfg, config_file)
 
-    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/rsna-v2.pkl', 'rb'))
+    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/vindr-density-dinov2.pkl', 'rb'))
     # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/bsexp/v2-giant-inf.pkl', 'rb'))
-    datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/bsexp/medsiglip-inf.pkl', 'rb'))
-    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/vindr-msl.pkl', 'rb'))
+    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/pca/medsiglip-inf-32.pkl', 'rb'))
+    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/setflow/msl-60ksteps-128-synth-only.pkl', 'rb'))
+    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/bsexp/medsiglip-inf.pkl', 'rb'))
+    datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/v2-giant.pkl', 'rb'))
     train_ds, valid_ds, test_ds = datasets
 
     # v2_datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/bsexp/v2-giant-inf.pkl', 'rb'))
@@ -104,24 +107,34 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate, r
         return model
 
     optimizer = optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    # binary classification
     criterion = nn.BCEWithLogitsLoss(reduction='none')
 
+    # multiclass classification
+    # criterion = nn.CrossEntropyLoss(reduction='none')
 
     with open(log_file, 'w') as f:
         f.write('epoch,train_loss,val_loss,train_auc,val_auc,train_spec@85,val_spec@85\n')
 
+    # with open(log_file, 'w') as f:
+    #     f.write('epoch,train_loss,val_loss,train_acc,val_acc\n')
+
     best_val_auc = float('-inf')
+    # best_val_acc = float('-inf')
     patience_counter = 0
 
     for epoch in range(cfg.epochs):
-        optimizer.zero_grad()
         model.train()
         train_loss = 0
         ic('Training:')
         for x, y, w, group, instance_type in tqdm(train_dataset):
             x, y, w, group, instance_type = x.to(device), y.to(device), w.to(device), group.to(device), instance_type.to(device)
 
+            optimizer.zero_grad()
+
             logits = model(x, group, instance_type)
+            # multiclass classification
+            # y = rearrange(y, 'b 1 -> b').long()
             loss = criterion(logits, y)
             loss = (loss * w).mean()
             train_loss += loss.item()
@@ -137,10 +150,32 @@ def _train(train_dataset, valid_dataset, cfg, device, log_file, just_evaluate, r
                 x, y, w, group, instance_type = x.to(device), y.to(device), w.to(device), group.to(device), instance_type.to(device)
 
                 logits = model(x, group, instance_type)
+                # multiclass classification
+                # y = rearrange(y, 'b 1 -> b').long()
                 loss = criterion(logits, y)
                 loss = (loss * w).mean()
                 val_loss += loss.item()
 
+        # multiclass classification
+        # train_report = evaluate(model, train_dataset, device)
+        # train_acc = train_report.accuracy()
+
+        # val_report = evaluate(model, valid_dataset, device)
+        # val_acc = val_report.accuracy()
+
+        # with open(log_file, 'a') as f:
+        #     f.write(f'{epoch},{train_loss},{val_loss},{train_acc},{val_acc}\n')
+
+        # if val_acc - best_val_acc > 0.001:
+        #     best_val_acc = val_acc
+        #     best_model_state = copy.deepcopy(model.state_dict())
+        #     patience_counter = 0
+        # else:
+        #     patience_counter += 1
+        #     if patience_counter >= cfg.patience:
+        #         break
+
+        # binary classification
         train_report = evaluate(model, train_dataset, device)
         train_auc = train_report.auc()
         train_spec_at_85 = train_report.specificity_at(0.85)

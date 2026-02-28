@@ -118,7 +118,7 @@ class Trex(nn.Module):
 
 def load_cfg(cfg_path=None):
     if cfg_path is None:
-        cfg_path = '/home/nikola.jovisic.ivi/nj/mammo_filter/head_training/config.yaml'
+        cfg_path = '/home/nikola.jovisic.ivi/nj/mammo_filter/head_training/config_importance.yaml'
     cfg = OmegaConf.load(cfg_path)
     return cfg
 
@@ -215,7 +215,7 @@ def get_attn_scores(idx, images, tiles):
 if __name__ == '__main__':
     save_image_list()
 #     for idx, (images, tiles, _) in enumerate(MammoDataset(DatasetEnum.VINDR, labels=['BI-RADS 1'], return_mode=ReturnMode.BREAST_TILES_LABEL, convert_to=ConvertTo.RGB_TENSOR_IMGNET_NORM, tile_size=518, final_resize=518)):
-    for idx, (images, tiles, _) in enumerate(MammoDataset(DatasetEnum.VINDR, labels=['BI-RADS 5'], split='test', return_mode=ReturnMode.BREAST_TILES_LABEL, convert_to=ConvertTo.PIL, tile_size=518, final_resize=518, read_window=True)):
+    for idx, (images, tiles, _) in enumerate(MammoDataset(DatasetEnum.VINDR, labels=[1], split='test', return_mode=ReturnMode.BREAST_TILES_LABEL, convert_to=ConvertTo.PIL, tile_size=518, final_resize=518, read_window=True)):
         print(f'img {idx} num of tiles: {len(tiles)}')
         get_attn_scores(idx, images, tiles)
 #         if idx == 20:

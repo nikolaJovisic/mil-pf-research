@@ -29,7 +29,7 @@ class TrexBothAgg(nn.Module):
 
         x_tile = self.local_proj_0(x_tile)
         x_tile = self.local_proj_1(x_tile)
-        local_agg = scatter_mean(x_tile, group_tile, dim=0) #[0]
+        local_agg = scatter_max(x_tile, group_tile, dim=0)[0]
 
         fused = torch.cat([whole_agg, local_agg], dim=-1)
         out = self.linear_out(fused)

@@ -1,10 +1,10 @@
-from model.cls_architectures import Baseline, Perceiver
-from model.last_state_architectures import Dinout, Velo
-from model.trex import Trex
-from model.trex_global import TrexGlobal
-from model.trex_local import TrexLocal
-from model.trex_both_agg import TrexBothAgg
-from model.linear_probe import LinearProbe
+from head_training.model.cls_architectures import Baseline, Perceiver
+from head_training.model.last_state_architectures import Dinout, Velo
+from head_training.model.trex import Trex
+from head_training.model.trex_global import TrexGlobal
+from head_training.model.trex_local import TrexLocal
+from head_training.model.trex_both_agg import TrexBothAgg
+from head_training.model.linear_probe import LinearProbe
 
 def build_model(cfg, device):
     return {

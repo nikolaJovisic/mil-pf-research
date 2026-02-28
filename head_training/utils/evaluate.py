@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from sklearn.metrics import confusion_matrix
-from utils.evaluation_report import EvaluationReport
+from head_training.utils.evaluation_report import EvaluationReport
 
 def evaluate(model, dataset, device='cuda'):
     model.eval()

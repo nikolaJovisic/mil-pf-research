@@ -6,9 +6,9 @@ from tqdm import tqdm
 from einops import rearrange    
 from icecream import ic
 from collections import Counter
-from utils.collate import collate
+from head_training.utils.collate import collate
 import psutil
-from utils.flatten_group import FlattenGroup
+from head_training.utils.flatten_group import FlattenGroup
 
 class EmbeddingsDataset(Dataset):
     def __init__(self, h5_paths, pos_labels, neg_labels, batch_size, flatten=False, pos_weight=1.0):

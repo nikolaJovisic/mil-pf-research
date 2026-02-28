@@ -21,8 +21,8 @@ def shard_indices(n, world_size, rank):
 
 def save_split(split, world_size, rank):
     ds_params = {
-        "dataset": DatasetEnum.CSAW,
-        "labels": [0, 1],
+        "dataset": DatasetEnum.VINDR,
+        #"labels": [],
         "convert_to": ConvertTo.RGB_TENSOR_IMGNET_NORM,
         "split": split,
         "tile_size": 518,
@@ -42,8 +42,8 @@ def save_split(split, world_size, rank):
     ds_images = Subset(ds_images_full, idx)
     ds_tiles = Subset(ds_tiles_full, idx)
 
-    save_dataset(ds_tiles, f'/lustre/nj/cvpr2026/csaw/rsna/ws{world_size}/r{rank}/{split}/tiles', tiles=True)
-    save_dataset(ds_images, f'/lustre/nj/cvpr2026/csaw/rsna/ws{world_size}/r{rank}/{split}/images', tiles=False)
+    save_dataset(ds_tiles, f'/lustre/nj/cvpr2026/ds_prep/vindr-density/ws{world_size}/r{rank}/{split}/tiles', tiles=True)
+    save_dataset(ds_images, f'/lustre/nj/cvpr2026/ds_prep/vindr-density/ws{world_size}/r{rank}/{split}/images', tiles=False)
 
 if __name__ == "__main__":
     num_gpus = 6

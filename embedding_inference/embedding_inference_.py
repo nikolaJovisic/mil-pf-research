@@ -6,14 +6,15 @@ from torch.utils.data import DataLoader
 import h5py
 from pathlib import Path
 from omegaconf import OmegaConf
+# from alter_encoders.mirai import build_model
 #for custom model
 #from model.build import build_model
 #for dinov2 model:
-#from dinov2_wrapper import build_model
-#from medsiglip_wrapper import build_model
+# from dinov2_wrapper import build_model
+from medsiglip_wrapper import build_model
 # from eval_gmic_v2 import build_model
 #from bioclip_wrapper import build_model
-from mammoclip_wrapper import build_model
+#from mammoclip_wrapper import build_model
 # from dinov3_wrapper import build_model
 from utils_.serialization import save_embedding_inference
 #from batched_dataloader import get_batched_dataloader
@@ -73,6 +74,8 @@ class EmbeddingInference:
                     #print("Allocated:", torch.cuda.memory_allocated(0) / 1024**2, "MB")
                     #print("Reserved:", torch.cuda.memory_reserved(0) / 1024**2, "MB")
                     #for dinov2 model:
+
+                    # images = batch_images
 
                     embeddings = self.model(images)
                     embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
