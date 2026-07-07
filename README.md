@@ -7,6 +7,8 @@ This repository implements a scalable two-stage pipeline:
 1. **Feature precomputation** with frozen foundation encoders  
 2. **Lightweight MIL head training** (~40k trainable parameters)
 
+A more production-ready version for inference can be found on repositories [`mil-pf-core`](https://github.com/nikolaJovisic/mil-pf-core) and [`mil-pf-serve`](https://github.com/nikolaJovisic/mil-pf-serve)
+
 ---
 
 ## Pipeline
