@@ -21,10 +21,10 @@ def parse_args():
     parser.add_argument("--config", default="baseline", choices=sorted(CONFIGS.keys()))
     parser.add_argument("--max_steps", type=int, default=100_000)
     parser.add_argument("--eval_every", type=int, default=2000)
-    parser.add_argument("--early_stop_patience", type=int, default=5)
+    parser.add_argument("--early_stop_patience", type=int, default=3)
     parser.add_argument("--early_stop_min_delta", type=float, default=1e-4)
-    parser.add_argument("--pkl_path", default="/lustre/nj/cvpr2026/pickles/pca/vindr-v2-128.pkl")
-    parser.add_argument("--out_dir", default="weights/vindr-v2-128")
+    parser.add_argument("--pkl_path", default="/lustre/nj/cvpr2026/pickles/pca/v2-128.pkl")
+    parser.add_argument("--out_dir", default="weights/abl-v2-128")
     return parser.parse_args()
 
 
@@ -32,10 +32,10 @@ def train(
     config: SetFlowConfig,
     max_steps: int = 100_000,
     eval_every: int = 2000,
-    early_stop_patience: int = 5,
+    early_stop_patience: int = 3,
     early_stop_min_delta: float = 1e-4,
-    pkl_path: str = "/lustre/nj/cvpr2026/pickles/pca/vindr-v2-128.pkl",
-    out_dir: str = "weights/vindr-v2-128",
+    pkl_path: str = "/lustre/nj/cvpr2026/pickles/pca/v2-128.pkl",
+    out_dir: str = "weights/abl-v2-128",
 ):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -43,6 +43,9 @@ def train(
     os.makedirs(save_dir, exist_ok=True)
     with open(os.path.join(save_dir, "config.json"), "w") as f:
         json.dump(asdict(config), f, indent=2)
+
+    metrics_path = os.path.join(save_dir, "metrics.jsonl")
+    checkpoint_path = os.path.join(save_dir, "setflow.pth")
 
     dataset = FMDataset(
         pkl_path=pkl_path,
@@ -109,28 +112,41 @@ def train(
 
             internal_fid = compute_internal_fid(x_synth)
 
-            print(
-                f"[{config.name}] Step {step} | "
-                f"loss={loss.item():.4f} | "
-                f"cos(v,dx)={cos:.4f} | "
-                f"fid_vs_real={compute_fid(x_1, x_synth):.2f} | "
-                f"fid_internal={internal_fid:.4f} | "
-                f"interinstance_fid={compute_interinstance_fid(x_synth, instance_synth):.2f} | "
-                f"interlabel_fid={compute_interlabel_fid(x_synth, instance_synth, y_synth):.4f} | "
-            )
-
             monitor_stats = nn_subset_monitor(
                 x_1, y, group, instance_type, x_synth, y_synth, group_synth, instance_synth
             )
+
+            metrics = {
+                "step": step,
+                "loss": loss.item(),
+                "cos_v_dx": cos,
+                "fid_vs_real": compute_fid(x_1, x_synth),
+                "fid_internal": internal_fid,
+                "interinstance_fid": compute_interinstance_fid(x_synth, instance_synth),
+                "interlabel_fid": compute_interlabel_fid(x_synth, instance_synth, y_synth),
+                "monitor": monitor_stats,
+            }
+
+            print(
+                f"[{config.name}] Step {step} | "
+                f"loss={metrics['loss']:.4f} | "
+                f"cos(v,dx)={metrics['cos_v_dx']:.4f} | "
+                f"fid_vs_real={metrics['fid_vs_real']:.2f} | "
+                f"fid_internal={metrics['fid_internal']:.4f} | "
+                f"interinstance_fid={metrics['interinstance_fid']:.2f} | "
+                f"interlabel_fid={metrics['interlabel_fid']:.4f} | "
+            )
             ic(monitor_stats)
 
+            with open(metrics_path, "a") as f:
+                f.write(json.dumps(metrics) + "\n")
+
             model.train()
-            path = os.path.join(save_dir, f"setflow_step_{step}.pth")
-            torch.save(model.state_dict(), path)
 
             if internal_fid < best_internal_fid - early_stop_min_delta:
                 best_internal_fid = internal_fid
                 evals_without_improvement = 0
+                torch.save(model.state_dict(), checkpoint_path)
             else:
                 evals_without_improvement += 1
 
