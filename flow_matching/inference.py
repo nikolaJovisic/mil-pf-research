@@ -1,31 +1,35 @@
-import pickle
-import torch
-import sys
+import argparse
 import math
+import os
+import pickle
+import sys
 
-from setflow import SetFlow
-from generate import generate
-from configs import CONFIGS
 import einops
+import torch
+
+from configs import CONFIGS
+from generate import generate
+from setflow import SetFlow
 
 sys.path.append("../head_training")
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-torch.backends.cudnn.benchmark = True
 
-input_pkl = "/lustre/nj/cvpr2026/pickles/pca/vindr-msl-128.pkl"
-output_pkl = "/lustre/nj/cvpr2026/pickles/setflow/st26/vindr-msl-128-comb.pkl"
-synthetic_pkl = "/lustre/nj/cvpr2026/pickles/setflow/st26/vindr-msl-128-synth.pkl"
-weights_path = "weights/vindr-msl-128/setflow_step_36000.pth"
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="baseline", choices=sorted(CONFIGS.keys()))
+    parser.add_argument("--weights_dir", default="weights/abl-v2-128")
+    parser.add_argument("--input_pkl", default="/lustre/nj/cvpr2026/pickles/pca/v2-128.pkl")
+    parser.add_argument("--out_dir", default="synthetic/abl-v2-128")
+    return parser.parse_args()
 
 
-def generate_dataset(model, num_bags_y0, num_bags_y1, w_per_class):
+def generate_dataset(model, config, num_bags_y0, num_bags_y1, w_per_class, device):
     x_syn, _, group_syn, instance_type_syn = generate(
         model=model,
         num_bags_y0=num_bags_y0,
         num_bags_y1=num_bags_y1,
-        feature_dim=128,
-        num_steps=50,
+        feature_dim=config.dim,
+        num_steps=config.num_steps,
         device=device,
     )
 
@@ -41,7 +45,18 @@ def generate_dataset(model, num_bags_y0, num_bags_y1, w_per_class):
     return x_syn, y_syn, w_syn, group_syn, instance_type_syn
 
 
-def main():
+def run_inference(config_name, weights_dir, input_pkl, out_dir):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    torch.backends.cudnn.benchmark = True
+
+    config = CONFIGS[config_name]
+    weights_path = os.path.join(weights_dir, config_name, "setflow.pth")
+
+    save_dir = os.path.join(out_dir, config_name)
+    os.makedirs(save_dir, exist_ok=True)
+    output_pkl = os.path.join(save_dir, "combined.pkl")
+    synthetic_pkl = os.path.join(save_dir, "synthetic.pkl")
+
     train_ds, valid_ds, test_ds = pickle.load(open(input_pkl, "rb"))
     x_real, y_real, w_real, group_real, instance_type_real = train_ds[0]
 
@@ -53,7 +68,7 @@ def main():
         for c in torch.unique(y_real)
     }
 
-    model = SetFlow(CONFIGS["baseline"]).to(device)
+    model = SetFlow(config).to(device)
     model.load_state_dict(torch.load(weights_path, map_location=device))
     model.eval()
 
@@ -62,9 +77,11 @@ def main():
 
     x_syn, y_syn, w_syn, group_syn, instance_type_syn = generate_dataset(
         model=model,
+        config=config,
         num_bags_y0=num_bags_y0,
         num_bags_y1=num_bags_y1,
         w_per_class=w_per_class,
+        device=device,
     )
 
     y_syn = einops.rearrange(y_syn, 'b -> b 1')
@@ -88,9 +105,11 @@ def main():
 
     x_bonus, y_bonus, w_bonus, group_bonus, instance_type_bonus = generate_dataset(
         model=model,
+        config=config,
         num_bags_y0=bonus_bags_y0,
         num_bags_y1=bonus_bags_y1,
         w_per_class=w_per_class,
+        device=device,
     )
 
     group_offset = int(group_real.max().item()) + 1
@@ -111,6 +130,20 @@ def main():
         (train_ds_aug, valid_ds, test_ds),
         open(output_pkl, "wb"),
         protocol=pickle.HIGHEST_PROTOCOL,
+    )
+
+    del model
+    if device == "cuda":
+        torch.cuda.empty_cache()
+
+
+def main():
+    args = parse_args()
+    run_inference(
+        config_name=args.config,
+        weights_dir=args.weights_dir,
+        input_pkl=args.input_pkl,
+        out_dir=args.out_dir,
     )
 
 
