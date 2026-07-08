@@ -5,6 +5,7 @@ import math
 
 from setflow import SetFlow
 from generate import generate
+from configs import CONFIGS
 import einops
 
 sys.path.append("../head_training")
@@ -52,7 +53,7 @@ def main():
         for c in torch.unique(y_real)
     }
 
-    model = SetFlow().to(device)
+    model = SetFlow(CONFIGS["baseline"]).to(device)
     model.load_state_dict(torch.load(weights_path, map_location=device))
     model.eval()
 

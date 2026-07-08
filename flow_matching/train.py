@@ -1,104 +1,116 @@
+import argparse
+import json
+import os
+from dataclasses import asdict
+
 import torch
 from torch import nn
 from torch.optim import Adam
 from tqdm import tqdm
-import os
 
+from configs import CONFIGS
 from dataset import FMDataset, MixMode
-# from simple_setflow import SimpleSetFlow
 from setflow import SetFlow
-from torchinfo import summary
-from visualize import monitor
 from generate import generate
-from utils import compute_fid, compute_interinstance_fid, compute_interlabel_fid, compute_vs_noise_fid, compute_internal_fid, nn_subset_monitor
+from utils import compute_fid, compute_interinstance_fid, compute_interlabel_fid, compute_internal_fid, nn_subset_monitor
 from icecream import ic
 
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="baseline", choices=sorted(CONFIGS.keys()))
+    parser.add_argument("--max_steps", type=int, default=100_000)
+    parser.add_argument("--pkl_path", default="/lustre/nj/cvpr2026/pickles/pca/vindr-v2-128.pkl")
+    parser.add_argument("--out_dir", default="weights/vindr-v2-128")
+    return parser.parse_args()
 
-pkl_path = "/lustre/nj/cvpr2026/pickles/pca/vindr-v2-128.pkl"
 
-dataset = FMDataset(
-    pkl_path=pkl_path,
-    mix=MixMode.NONE,
-    soft_mix=False,
-    groups_per_class=512,
-    device=device,
-)
+def main():
+    args = parse_args()
+    config = CONFIGS[args.config]
 
-model = SetFlow().to(device)
-model.train()
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-optimizer = Adam(model.parameters(), lr=1e-4)
-loss_fn = nn.MSELoss()
+    save_dir = os.path.join(args.out_dir, config.name)
+    os.makedirs(save_dir, exist_ok=True)
+    with open(os.path.join(save_dir, "config.json"), "w") as f:
+        json.dump(asdict(config), f, indent=2)
 
-for step, (x_1, y, group, instance_type) in tqdm(enumerate(dataset)):
-    x_0 = torch.randn_like(x_1)
-
-    t = torch.rand(len(x_1), 1, device=device)
-
-    # deterministic
-    x_t = (1.0 - t) * x_0 + t * x_1
-
-    # stochastic
-    # sigma = 0.1
-
-    # eps = torch.randn_like(x_1)
-    # x_t = (1.0 - t) * x_0 + t * x_1 + sigma * torch.sqrt(t * (1 - t)) * eps
-
-    dx_t = x_1 - x_0
-
-    optimizer.zero_grad()
-
-    pred = model(
-        x_t=x_t,
-        t=t,
-        y=y.unsqueeze(-1),
-        group=group,
-        instance_type=instance_type,
+    dataset = FMDataset(
+        pkl_path=args.pkl_path,
+        mix=MixMode[config.mix_mode],
+        soft_mix=config.soft_mix,
+        groups_per_class=512,
+        device=device,
     )
 
-    loss = loss_fn(pred, dx_t)
-    loss.backward()
-    optimizer.step()
+    model = SetFlow(config).to(device)
+    model.train()
 
-    if step % 2000 == 0:
-        with torch.no_grad():
-            v_norm = pred.norm(dim=-1).mean().item()
-            x_norm = x_t.norm(dim=-1).mean().item()
-            dx_norm = dx_t.norm(dim=-1).mean().item()
-            cos = torch.nn.functional.cosine_similarity(
-                pred, dx_t, dim=-1
-            ).mean().item()
+    optimizer = Adam(model.parameters(), lr=1e-4)
+    loss_fn = nn.MSELoss()
 
+    for step, (x_1, y, group, instance_type) in tqdm(enumerate(dataset), total=args.max_steps):
+        if step >= args.max_steps:
+            break
 
-        x_synth, y_synth, group_synth, instance_synth = generate(
-            model=model,
-            num_bags_y0=2000,
-            num_bags_y1=2000,
-            feature_dim=128,
-            num_steps=50,
-            device=device,
+        x_0 = torch.randn_like(x_1)
+        t = torch.rand(len(x_1), 1, device=device)
+
+        if config.stochastic_bridge:
+            eps = torch.randn_like(x_1)
+            x_t = (1.0 - t) * x_0 + t * x_1 + config.sigma * torch.sqrt(t * (1 - t)) * eps
+        else:
+            x_t = (1.0 - t) * x_0 + t * x_1
+
+        dx_t = x_1 - x_0
+
+        optimizer.zero_grad()
+
+        pred = model(
+            x_t=x_t,
+            t=t,
+            y=y.unsqueeze(-1),
+            group=group,
+            instance_type=instance_type,
         )
 
-        print(
-            f"Step {step} | "
-            f"loss={loss.item():.4f} | "
-            # f"||v||={v_norm:.2f} | "
-            # f"||x_t||={x_norm:.2f} | "
-            # f"||dx||={dx_norm:.2f} | "
-            f"cos(v,dx)={cos:.4f} | "
-            f"fid_vs_real={compute_fid(x_1, x_synth):.2f} | "
-            f"fid_internal={compute_internal_fid(x_synth)} | "
-            # f"fid_vs_noise={compute_vs_noise_fid(x_synth):.2f} | "
-            f"interinstance_fid={compute_interinstance_fid(x_synth, instance_synth):.2f} | "
-            f"interlabel_fid={compute_interlabel_fid(x_synth, instance_synth, y_synth):.4f} | "
-        )
+        loss = loss_fn(pred, dx_t)
+        loss.backward()
+        optimizer.step()
 
-        nn = nn_subset_monitor(x_1, y, group, instance_type, x_synth, y_synth, group_synth, instance_synth)
-        ic(nn)
+        if step % 2000 == 0:
+            with torch.no_grad():
+                cos = torch.nn.functional.cosine_similarity(
+                    pred, dx_t, dim=-1
+                ).mean().item()
 
-        model.train()
-        path = f"weights/vindr-v2-128/setflow_step_{step}.pth"
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        torch.save(model.state_dict(), path) 
+            x_synth, y_synth, group_synth, instance_synth = generate(
+                model=model,
+                num_bags_y0=2000,
+                num_bags_y1=2000,
+                feature_dim=config.dim,
+                num_steps=50,
+                device=device,
+            )
+
+            print(
+                f"[{config.name}] Step {step} | "
+                f"loss={loss.item():.4f} | "
+                f"cos(v,dx)={cos:.4f} | "
+                f"fid_vs_real={compute_fid(x_1, x_synth):.2f} | "
+                f"fid_internal={compute_internal_fid(x_synth)} | "
+                f"interinstance_fid={compute_interinstance_fid(x_synth, instance_synth):.2f} | "
+                f"interlabel_fid={compute_interlabel_fid(x_synth, instance_synth, y_synth):.4f} | "
+            )
+
+            nn = nn_subset_monitor(x_1, y, group, instance_type, x_synth, y_synth, group_synth, instance_synth)
+            ic(nn)
+
+            model.train()
+            path = os.path.join(save_dir, f"setflow_step_{step}.pth")
+            torch.save(model.state_dict(), path)
+
+
+if __name__ == "__main__":
+    main()

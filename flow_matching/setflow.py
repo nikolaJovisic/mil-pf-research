@@ -1,8 +1,10 @@
 import math
 import torch
 from torch import nn
-from torch_scatter import scatter_softmax, scatter_add
+from torch_scatter import scatter_softmax, scatter_add, scatter_mean
 import einops
+
+from configs import SetFlowConfig
 
 
 class TimeEmbedding(nn.Module):
@@ -76,48 +78,32 @@ class SegmentISAB(nn.Module):
 
 
 class SetFlowBlock(nn.Module):
-    def __init__(
-        self,
-        dim=128,
-        hidden=512,
-        attn_dim=32,
-        cond_dim=16,
-        n_classes=2,
-        n_types=2,
-        num_inducing=4,
-    ):
+    def __init__(self, config: SetFlowConfig):
         super().__init__()
+        self.config = config
+
+        dim = config.dim
+        hidden = config.hidden
+        cond_dim = config.cond_dim
 
         self.time_embed = TimeEmbedding(cond_dim)
-        self.class_embed = nn.Embedding(n_classes, cond_dim)
-        self.type_embed = nn.Embedding(n_types, cond_dim)
+        self.class_embed = nn.Embedding(config.n_classes, cond_dim)
+        self.type_embed = nn.Embedding(config.n_types, cond_dim)
 
-        self.cond_proj = nn.Linear(3 * cond_dim, cond_dim)
+        n_cond_parts = 1 + int(config.use_class_cond) + int(config.use_stream_cond)
+        self.cond_proj = nn.Linear(n_cond_parts * cond_dim, cond_dim)
 
         self.in_proj = nn.Linear(dim, hidden)
 
         self.film1 = FiLM(hidden, cond_dim)
         self.norm1 = nn.LayerNorm(hidden)
 
-        self.isab = SegmentISAB(hidden, attn_dim, num_inducing)
-
+        self.isab = SegmentISAB(hidden, config.attn_dim, config.num_inducing)
         self.norm_isab = nn.LayerNorm(hidden)
 
-        self.token_mlp = nn.Sequential(
-            nn.Linear(hidden, hidden),
-            nn.ELU(),
-            nn.Linear(hidden, hidden),
-            nn.ELU(),
-            nn.Linear(hidden, hidden),
-            nn.ELU(),
-            # nn.Linear(hidden, hidden),
-            # nn.ELU(),
-            # nn.Linear(hidden, hidden),
-            # nn.ELU(),
-            # nn.Linear(hidden, hidden),
-            # nn.ELU(),
-            # nn.Linear(hidden, hidden),
-        )
+        self.pool_proj = nn.Linear(hidden, hidden)
+
+        self.token_mlp = self._build_token_mlp(hidden, config.token_mlp_depth)
 
         self.film2 = FiLM(hidden, cond_dim)
         self.norm2 = nn.LayerNorm(hidden)
@@ -125,25 +111,67 @@ class SetFlowBlock(nn.Module):
         self.out_proj = nn.Linear(hidden, dim)
         self.act = nn.SiLU()
 
+    @staticmethod
+    def _build_token_mlp(hidden, depth):
+        if depth == 0:
+            return nn.Identity()
+        layers = []
+        for _ in range(depth):
+            layers += [nn.Linear(hidden, hidden), nn.ELU()]
+        return nn.Sequential(*layers)
+
+    def _isab_branch(self, h, group):
+        out = self.isab(h, group)
+        if self.config.isab_residual:
+            return self.norm_isab(h + out)
+        return out
+
+    def _pool_branch(self, h, group):
+        pooled = scatter_mean(h, group, dim=0)
+        return self.pool_proj(pooled[group])
+
+    def _combine(self, h, group):
+        mode = self.config.branch_mode
+        if mode == "both":
+            return self.token_mlp(h) + self._isab_branch(h, group)
+        if mode == "mlp_only":
+            return self.token_mlp(h)
+        if mode == "isab_only":
+            return self._isab_branch(h, group)
+        if mode == "pool_only":
+            return self._pool_branch(h, group)
+        if mode == "none":
+            return h
+        raise ValueError(f"Unknown branch_mode: {mode}")
+
     def forward(self, x, t, y, instance_type, group):
         t_emb = self.time_embed(t)
-        y_emb = self.class_embed(y.squeeze(-1))
-        it_emb = self.type_embed(instance_type)
 
-        cond = self.cond_proj(torch.cat([t_emb, y_emb, it_emb], dim=-1))
+        cond_parts = [t_emb]
+        if self.config.use_class_cond:
+            cond_parts.append(self.class_embed(y.squeeze(-1)))
+        if self.config.use_stream_cond:
+            cond_parts.append(self.type_embed(instance_type))
+
+        cond = self.cond_proj(torch.cat(cond_parts, dim=-1))
 
         h = self.in_proj(x)
         h = self.act(self.norm1(self.film1(h, cond)))
-        h = self.token_mlp(h) + self.norm_isab(h + self.isab(h, group))
-        h = self.act(self.norm2(self.film2(h, cond)))
+        h = self._combine(h, group)
+
+        if self.config.double_film:
+            h = self.act(self.norm2(self.film2(h, cond)))
+        else:
+            h = self.act(self.norm2(h))
 
         return self.out_proj(h)
 
 
 class SetFlow(nn.Module):
-    def __init__(self, **kwargs):
+    def __init__(self, config: SetFlowConfig):
         super().__init__()
-        self.block = SetFlowBlock(**kwargs)
+        self.config = config
+        self.block = SetFlowBlock(config)
 
     def forward(self, x_t, t, y, group, instance_type):
         return self.block(x_t, t, y, instance_type, group)
@@ -153,13 +181,10 @@ class SetFlow(nn.Module):
         t0 = t_start.view(1, 1).expand(len(x_t), 1)
 
         k1 = self(x_t, t0, y, group, instance_type)
+
+        if self.config.integrator == "euler":
+            return x_t + dt * k1
+
         x_mid = x_t + 0.5 * dt * k1
         k2 = self(x_mid, t0 + 0.5 * dt, y, group, instance_type)
-
-        # stochasic step
-        # sigma = 0.05
-        # noise = torch.randn_like(x_t)
-        # return x_t + dt * k2 + sigma * torch.sqrt(dt) * noise
-
-        # deterministic step
         return x_t + dt * k2
