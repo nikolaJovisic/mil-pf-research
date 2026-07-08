@@ -1,15 +1,16 @@
 import argparse
-import os
-import subprocess
-import sys
 
 from configs import CONFIGS
+from train import train
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--configs", nargs="*", default=sorted(CONFIGS.keys()))
     parser.add_argument("--max_steps", type=int, default=100_000)
+    parser.add_argument("--eval_every", type=int, default=2000)
+    parser.add_argument("--early_stop_patience", type=int, default=5)
+    parser.add_argument("--early_stop_min_delta", type=float, default=1e-4)
     parser.add_argument("--pkl_path", default="/lustre/nj/cvpr2026/pickles/pca/vindr-v2-128.pkl")
     parser.add_argument("--out_dir", default="weights/vindr-v2-128")
     return parser.parse_args()
@@ -22,25 +23,16 @@ def main():
         if name not in CONFIGS:
             raise ValueError(f"Unknown config: {name}")
 
-        save_dir = os.path.join(args.out_dir, name)
-        os.makedirs(save_dir, exist_ok=True)
-        log_path = os.path.join(save_dir, "train.log")
-
-        print(f"=== running config '{name}' (log: {log_path}) ===")
-
-        with open(log_path, "w") as log_file:
-            subprocess.run(
-                [
-                    sys.executable, "train.py",
-                    "--config", name,
-                    "--max_steps", str(args.max_steps),
-                    "--pkl_path", args.pkl_path,
-                    "--out_dir", args.out_dir,
-                ],
-                stdout=log_file,
-                stderr=subprocess.STDOUT,
-                check=True,
-            )
+        print(f"=== running config '{name}' ===")
+        train(
+            config=CONFIGS[name],
+            max_steps=args.max_steps,
+            eval_every=args.eval_every,
+            early_stop_patience=args.early_stop_patience,
+            early_stop_min_delta=args.early_stop_min_delta,
+            pkl_path=args.pkl_path,
+            out_dir=args.out_dir,
+        )
 
 
 if __name__ == "__main__":
