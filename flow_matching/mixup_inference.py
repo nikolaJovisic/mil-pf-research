@@ -82,12 +82,25 @@ def _mix_bag(x, bag_instance_idx, instance_type, bag_label, config, class_pools)
     return new_x
 
 
+def _bag_instance_index(group, num_bags):
+    """Precomputed bag_id -> instance-index lookup, built in one O(N log N)
+    pass instead of an O(N) scan per bag (the latter makes bonus-bag
+    construction O(n_bonus_bags * N_instances), which is unusably slow on
+    large datasets)."""
+    order = torch.argsort(group, stable=True)
+    counts = torch.bincount(group[order], minlength=num_bags)
+    offsets = torch.cumsum(counts, dim=0) - counts
+    return order, offsets, counts
+
+
 def build_bonus_bags(x, y_bag, w_bag, group, instance_type, config, group_offset):
     bag_label_per_instance = y_bag[group]
 
     class_pools = None
     if config.pairing_scope == "class":
         class_pools = _build_class_pools(bag_label_per_instance, instance_type, config.intra_scale)
+
+    order, offsets, counts = _bag_instance_index(group, num_bags=len(y_bag))
 
     all_x, all_group, all_instance_type, all_y, all_w = [], [], [], [], []
     next_group_id = group_offset
@@ -99,7 +112,8 @@ def build_bonus_bags(x, y_bag, w_bag, group, instance_type, config, group_offset
 
         for bag_id in chosen:
             bag_id = int(bag_id.item())
-            bag_instance_idx = (group == bag_id).nonzero(as_tuple=True)[0]
+            off, cnt = int(offsets[bag_id]), int(counts[bag_id])
+            bag_instance_idx = order[off:off + cnt]
 
             new_x = _mix_bag(x, bag_instance_idx, instance_type, int(c.item()), config, class_pools)
             n = len(bag_instance_idx)
