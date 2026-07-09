@@ -3,7 +3,7 @@ logs_path: /home/nikola.jovisic.ivi/nj/mammo_filter/head_training/logs
 #pickle_path: /lustre/nj/cvpr2026/pickles/vitb-explora-baseline.pkl #explora-v2-training_30000.pkl
 # pickle_path: /lustre/nj/cvpr2026/pickles/training_30000.pkl
 
-input_dim: 1536 #1152 #1152 #1536 #1152 #768  #2304 
+input_dim: 128 #1536 #1152 #1152 #1536 #1152 #768  #2304 
 model_type: trex_both_agg
 num_projs: 2
 out_layers: 1
@@ -60,4 +60,4 @@ patience: 20
 
 #saving
 load_path: #/lustre/nj/cvpr2026/head_weights/ad2092ef.pth #/lustre/nj/cvpr2026/head_weights/407f6532.pth #/lustre/nj/cvpr2026/head_weights/3496e8f3.pth #/lustre/nj/cvpr2026/head_weights/3b7fc1f3.pth #26fc3bf5.pth #407f6532.pth #embed-msl #3496e8f3.pth #embed-v2
-save_path: /lustre/nj/cvpr2026/head_weights/
+save_path: #/lustre/nj/cvpr2026/head_weights/

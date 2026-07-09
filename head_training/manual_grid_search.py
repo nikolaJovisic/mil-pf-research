@@ -13,7 +13,7 @@ from utils.evaluation_report import EvaluationReport
 
 def get_param_grid():
     return {
-       'runs': list(range(36)),
+       'runs': list(range(8)),
     }
 
 def set_nested_attr(obj, key_path, value):

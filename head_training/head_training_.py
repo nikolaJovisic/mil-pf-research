@@ -60,10 +60,10 @@ def train_head(run_id, cfg=None, gpu_id=None, just_evaluate=False):
 
     # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/vindr-density-dinov2.pkl', 'rb'))
     # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/bsexp/v2-giant-inf.pkl', 'rb'))
-    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/pca/medsiglip-inf-32.pkl', 'rb'))
-    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/setflow/msl-60ksteps-128-synth-only.pkl', 'rb'))
+    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/pca/v2-8.pkl', 'rb'))
+    datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/mixup-msl-128/cross_scale_class/combined.pkl', 'rb'))
     # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/bsexp/medsiglip-inf.pkl', 'rb'))
-    datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/v2-giant.pkl', 'rb'))
+    # datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/pca/v2-32.pkl', 'rb'))
     train_ds, valid_ds, test_ds = datasets
 
     # v2_datasets = pickle.load(open('/lustre/nj/cvpr2026/pickles/bsexp/v2-giant-inf.pkl', 'rb'))
