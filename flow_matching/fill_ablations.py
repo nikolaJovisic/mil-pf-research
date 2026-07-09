@@ -2,13 +2,12 @@ import argparse
 import glob
 import os
 import re
+import subprocess
 import sys
 
 import pandas as pd
 
-sys.path.append("../head_training")
-
-from manual_grid_search import run_distributed_training
+HEAD_TRAINING_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "head_training"))
 
 # maps SetFlow ablation config name (configs.py) -> row label as it appears in ablation.tex
 ROW_LABELS = {
@@ -65,16 +64,28 @@ def best_test_metrics(results_dir):
 
 
 def run_config(config_name, pickle_root, results_root):
-    combined_pkl = os.path.join(pickle_root, config_name, "combined.pkl")
+    combined_pkl = os.path.abspath(os.path.join(pickle_root, config_name, "combined.pkl"))
     if not os.path.exists(combined_pkl):
         print(f"  [skip] {combined_pkl} not found")
         return None
 
-    config_results_dir = os.path.join(results_root, config_name)
+    config_results_dir = os.path.abspath(os.path.join(results_root, config_name))
     os.makedirs(config_results_dir, exist_ok=True)
 
     print(f"  running grid search for '{config_name}' on {combined_pkl}")
-    run_distributed_training(config_results_dir, combined_pkl)
+    # run as a subprocess (not in-process) so manual_grid_search.py's bare
+    # `from utils...` imports resolve against its own directory instead of
+    # colliding with flow_matching/utils.py, which would otherwise shadow
+    # head_training/utils/ once both dirs are on the same sys.path.
+    subprocess.run(
+        [
+            sys.executable, "manual_grid_search.py",
+            "--results-dir", config_results_dir,
+            "--pickle-path", combined_pkl,
+        ],
+        cwd=HEAD_TRAINING_DIR,
+        check=True,
+    )
 
     metrics = best_test_metrics(config_results_dir)
     if metrics is None:
