@@ -11,8 +11,8 @@ def parse_args():
     parser.add_argument("--eval_every", type=int, default=2000)
     parser.add_argument("--early_stop_patience", type=int, default=3)
     parser.add_argument("--early_stop_min_delta", type=float, default=1e-4)
-    parser.add_argument("--pkl_path", default="/lustre/nj/cvpr2026/pickles/pca/v2-128.pkl")
-    parser.add_argument("--out_dir", default="weights/abl-v2-128")
+    parser.add_argument("--pkl_path", default="/lustre/nj/cvpr2026/pickles/pca/msl-128.pkl")
+    parser.add_argument("--out_dir", default="weights/abl-msl-128")
     return parser.parse_args()
 
 

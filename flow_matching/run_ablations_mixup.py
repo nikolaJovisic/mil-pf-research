@@ -7,8 +7,8 @@ from mixup_inference import run_mixup_inference
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--configs", nargs="*", default=sorted(CONFIGS.keys()))
-    parser.add_argument("--input_pkl", default="/lustre/nj/cvpr2026/pickles/pca/v2-128.pkl")
-    parser.add_argument("--out_dir", default="synthetic/mixup-v2-128")
+    parser.add_argument("--input_pkl", default="/lustre/nj/cvpr2026/pickles/pca/msl-128.pkl")
+    parser.add_argument("--out_dir", default="/lustre/nj/cvpr2026/pickles/mixup-msl-128")
     return parser.parse_args()
 
 

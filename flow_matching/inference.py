@@ -19,7 +19,7 @@ def parse_args():
     parser.add_argument("--config", default="baseline", choices=sorted(CONFIGS.keys()))
     parser.add_argument("--weights_dir", default="weights/abl-v2-128")
     parser.add_argument("--input_pkl", default="/lustre/nj/cvpr2026/pickles/pca/v2-128.pkl")
-    parser.add_argument("--out_dir", default="synthetic/abl-v2-128")
+    parser.add_argument("--out_dir", default="/lustre/nj/cvpr2026/pickles/setflow/abl")
     return parser.parse_args()
 
 
