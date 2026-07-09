@@ -22,7 +22,7 @@ def set_nested_attr(obj, key_path, value):
         obj = getattr(obj, k)
     setattr(obj, keys[-1], value)
 
-def run_training(param_grid, param_list, gpu_id, save_dir):
+def run_training(param_grid, param_list, gpu_id, save_dir, pickle_path=None):
     import torch
     torch.cuda.set_device(gpu_id)
 
@@ -47,6 +47,9 @@ def run_training(param_grid, param_list, gpu_id, save_dir):
 
     cfg = load_cfg()
     print('Config loaded.')
+
+    if pickle_path is not None:
+        cfg.pickle_path = pickle_path
 
     for param_combination in param_list:
         param_combo_id = str(uuid.uuid4())[:8]
@@ -91,12 +94,12 @@ def split_balanced(items, num_splits):
 
     return out
 
-def run_distributed_training(results_dir):
+def run_distributed_training(results_dir, pickle_path=None):
     num_gpus = torch.cuda.device_count()
-    
+
     save_dir = f"{results_dir}"
     os.makedirs(save_dir, exist_ok=True)
-    
+
     param_grid = get_param_grid()
 
     mp.set_start_method('spawn', force=True)
@@ -116,19 +119,20 @@ def run_distributed_training(results_dir):
 
     processes = []
     for gpu_id, param_list in enumerate(chunks):
-        p = mp.Process(target=run_training, args=(param_grid, param_list, gpu_id, save_dir))
+        p = mp.Process(target=run_training, args=(param_grid, param_list, gpu_id, save_dir, pickle_path))
         p.start()
         processes.append(p)
 
     for p in processes:
         p.join()
-        
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--results-dir', type=str, default="results")
+    parser.add_argument('--pickle-path', type=str, default=None)
     args = parser.parse_args()
 
-    run_distributed_training(args.results_dir)
+    run_distributed_training(args.results_dir, args.pickle_path)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 logs_path: /home/nikola.jovisic.ivi/nj/mammo_filter/head_training/logs
 
+pickle_path: /lustre/nj/cvpr2026/pickles/v2-giant.pkl
 #pickle_path: /lustre/nj/cvpr2026/pickles/vitb-explora-baseline.pkl #explora-v2-training_30000.pkl
 # pickle_path: /lustre/nj/cvpr2026/pickles/training_30000.pkl
 

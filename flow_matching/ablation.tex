@@ -1,0 +1,27 @@
+\begin{table}[H]
+\caption{Ablation study results.\label{tab:ablation}}
+\begin{tabularx}{\textwidth}{lCCCCCC}
+\toprule
+ & \multicolumn{3}{c}{\textbf{MedSigLIP}} & \multicolumn{3}{c}{\textbf{DINOv2}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+\textbf{Ablation}
+& AUC & bACC & Spec.
+& AUC & bACC & Spec. \\
+\midrule
+Original & 0.904 & 0.841 & 0.698 & 0.896 & 0.833 & 0.657 \\
+Full SetFlow & 0.904 & 0.835 & 0.728 & 0.900 & 0.841 & 0.663 \\
+\midrule
+ISAB only &  &  &  &  &  &  \\
+TokenMLP only &  &  &  &  &  &  \\
+Pool only &  &  &  &  &  &  \\
+TokenMLP depth 1 &  &  &  &  &  &  \\
+TokenMLP depth 5 &  &  &  &  &  &  \\
+No stream cond. &  &  &  &  &  &  \\
+Single FiLM &  &  &  &  &  &  \\
+\# inducing 1 &  &  &  &  &  &  \\
+\# inducing 8 &  &  &  &  &  &  \\
+cond. dim 8 &  &  &  &  &  &  \\
+cond. dim 32 &  &  &  &  &  &  \\
+\bottomrule
+\end{tabularx}
+\end{table}
