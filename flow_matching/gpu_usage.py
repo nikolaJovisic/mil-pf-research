@@ -7,8 +7,6 @@ import torch
 
 from configs import CONFIGS, SetFlowConfig
 from inference import run_inference
-from mixup_configs import CONFIGS as MIXUP_CONFIGS
-from mixup_inference import run_mixup_inference
 from train import train
 
 DEFAULT_PICKLES = {
@@ -29,8 +27,8 @@ CONFIGS.setdefault("baseline", BASELINE_CONFIG)
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--stages", nargs="*", default=["train", "inference", "mixup"],
-        choices=["train", "inference", "mixup"],
+        "--stages", nargs="*", default=["train", "inference"],
+        choices=["train", "inference"],
     )
     parser.add_argument("--encoders", nargs="*", default=["msl", "v2"], choices=sorted(DEFAULT_PICKLES))
     parser.add_argument("--pkl_msl", default=DEFAULT_PICKLES["msl"])
@@ -41,9 +39,6 @@ def parse_args():
     parser.add_argument("--early_stop_min_delta", type=float, default=1e-4)
     parser.add_argument("--weights_dir", default="weights/gpu_usage")
     parser.add_argument("--synthetic_dir", default="synthetic/gpu_usage")
-    parser.add_argument("--mixup_config", default="intra_scale_bag", choices=sorted(MIXUP_CONFIGS))
-    parser.add_argument("--mixup_pkl", default=DEFAULT_PICKLES["msl"])
-    parser.add_argument("--mixup_dir", default="synthetic/gpu_usage-mixup")
     parser.add_argument("--results_jsonl", default="results/gpu_usage/gpu_usage.jsonl")
     parser.add_argument("--tex_path", default="tables/gpu_usage.tex")
     return parser.parse_args()
@@ -132,17 +127,6 @@ def measure_inference(encoder, args, device):
     return _record("inference", encoder, device, elapsed, peak_vram)
 
 
-def measure_mixup(args):
-    print(f"[gpu_usage] running MixUp ({args.mixup_config}) baseline on CPU")
-    elapsed, _ = _timed(
-        "cpu", run_mixup_inference,
-        config_name=args.mixup_config,
-        input_pkl=args.mixup_pkl,
-        out_dir=args.mixup_dir,
-    )
-    return _record("mixup", "both", "cpu", elapsed, None)
-
-
 def append_results(records, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "a") as f:
@@ -180,8 +164,8 @@ def write_tex(records, tex_path):
 
     lines = [
         "\\begin{table}[H]",
-        "\\caption{Computational cost of SetFlow training and inference against a MixUp "
-        "baseline, measured on " + gpu_note + ". Wall-clock and GPU-hours coincide since a "
+        "\\caption{Computational cost of training and running SetFlow, measured on "
+        + gpu_note + ". Wall-clock and GPU-hours coincide since a "
         "single device is used; peak VRAM is the maximum value returned by "
         "\\texttt{torch.cuda.max\\_memory\\_allocated} during the run.\\label{tab:gpu_usage}}",
         "\\begin{tabularx}{\\textwidth}{llCCC}",
@@ -209,13 +193,9 @@ def write_tex(records, tex_path):
             f"{fmt(infer_r['gpu_hours']) if infer_r else '--'} & "
             f"{fmt(infer_r['peak_vram_gb']) if infer_r else '--'} \\\\"
         )
-        lines.append("\\midrule")
+        if encoder == "msl":
+            lines.append("\\midrule")
 
-    mixup_r = by_key.get(("mixup", "both"))
-    lines.append(
-        "MixUp (CPU only) & Inference & "
-        f"{fmt(mixup_r['seconds'] / 3600) if mixup_r else '--'} & -- & -- \\\\"
-    )
     lines.append("\\bottomrule")
     lines.append("\\end{tabularx}")
     lines.append("\\end{table}")
@@ -240,9 +220,6 @@ def main():
     if "inference" in args.stages:
         for encoder in args.encoders:
             new_records.append(measure_inference(encoder, args, device))
-
-    if "mixup" in args.stages:
-        new_records.append(measure_mixup(args))
 
     append_results(new_records, args.results_jsonl)
 
