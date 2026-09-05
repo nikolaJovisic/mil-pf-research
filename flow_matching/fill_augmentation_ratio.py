@@ -29,7 +29,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--v2", action="store_true", help="fill the DINOv2 columns")
     parser.add_argument("--msl", action="store_true", help="fill the MedSigLIP columns")
-    parser.add_argument("--ratios", nargs="*", type=float, default=[0.05, 0.1])
+    parser.add_argument("--ratios", nargs="*", type=float, default=[0.05, 0.1, 0.5, 1.0])
     parser.add_argument("--msl_pickles_dir", default=PICKLE_DIRS["msl"])
     parser.add_argument("--v2_pickles_dir", default=PICKLE_DIRS["v2"])
     parser.add_argument("--config", default="baseline")
