@@ -3,9 +3,7 @@ import os
 import subprocess
 import sys
 
-import matplotlib.pyplot as plt
 import torch
-from scipy.stats import gaussian_kde
 
 HEAD_TRAINING_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "head_training"))
 
@@ -27,6 +25,7 @@ def parse_args():
     parser.add_argument("--work_dir", default="results/logit_analysis")
     parser.add_argument("--out_dir", default="logit_figs")
     parser.add_argument("--skip_extraction", action="store_true", help="reuse .pt files already in --work_dir")
+    parser.add_argument("--extract_only", action="store_true", help="save logits without plotting them")
     return parser.parse_args()
 
 
@@ -54,6 +53,14 @@ def extract(encoder, regime, pkl_path, work_dir):
 
 
 def plot_class_density(encoder, cls, runs, out_dir):
+    # imported here, not at module scope, so a broken plotting stack (e.g. a
+    # matplotlib built against NumPy 1.x on a NumPy 2 machine) can't block the
+    # GPU-side extraction, whose results are already saved by then.
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from scipy.stats import gaussian_kde
+
     plt.figure(figsize=(6, 4))
 
     for regime, data in runs.items():
@@ -105,6 +112,9 @@ def main():
                 f"  {encoder}/{regime}: AUC={runs[regime]['auc']:.3f}, "
                 f"Spec@90={runs[regime]['spec_90']:.3f}"
             )
+
+        if args.extract_only:
+            continue
 
         for cls in (0, 1):
             plot_class_density(encoder, cls, runs, args.out_dir)
