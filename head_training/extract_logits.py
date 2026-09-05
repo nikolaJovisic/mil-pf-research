@@ -71,8 +71,10 @@ def main():
         {
             "logits": logits,
             "labels": labels,
-            "auc": report.auc(),
-            "spec_90": spec_90,
+            # plain floats, not the numpy scalars sklearn hands back, so the
+            # file stays loadable under torch.load's weights_only default
+            "auc": float(report.auc()),
+            "spec_90": float(spec_90),
             "prob_threshold_90": float(prob_threshold),
         },
         out_path,

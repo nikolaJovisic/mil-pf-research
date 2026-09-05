@@ -104,7 +104,9 @@ def main():
             out_path = os.path.join(args.work_dir, f"{encoder}_{regime}.pt")
             if not (args.skip_extraction and os.path.exists(out_path)):
                 out_path = extract(encoder, regime, pkl_path, args.work_dir)
-            runs[regime] = torch.load(out_path)
+            # weights_only=False so files written before the float() fix in
+            # extract_logits.py, which carry numpy scalars, still load
+            runs[regime] = torch.load(out_path, weights_only=False)
             print(
                 f"  {encoder}/{regime}: AUC={runs[regime]['auc']:.3f}, "
                 f"Spec@90={runs[regime]['spec_90']:.3f}"
