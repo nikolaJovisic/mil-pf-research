@@ -45,7 +45,7 @@ def generate_dataset(model, config, num_bags_y0, num_bags_y1, w_per_class, devic
     return x_syn, y_syn, w_syn, group_syn, instance_type_syn
 
 
-def run_inference(config_name, weights_dir, input_pkl, out_dir):
+def run_inference(config_name, weights_dir, input_pkl, out_dir, bonus_ratio=0.2, write_synthetic=True):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch.backends.cudnn.benchmark = True
 
@@ -75,33 +75,33 @@ def run_inference(config_name, weights_dir, input_pkl, out_dir):
     num_bags_y0 = int((y_real == 0).sum().item())
     num_bags_y1 = int((y_real == 1).sum().item())
 
-    x_syn, y_syn, w_syn, group_syn, instance_type_syn = generate_dataset(
-        model=model,
-        config=config,
-        num_bags_y0=num_bags_y0,
-        num_bags_y1=num_bags_y1,
-        w_per_class=w_per_class,
-        device=device,
-    )
+    # the synthetic-only set is independent of the bonus set below, so a
+    # caller sweeping bonus_ratio can skip regenerating it every time
+    if write_synthetic:
+        x_syn, y_syn, w_syn, group_syn, instance_type_syn = generate_dataset(
+            model=model,
+            config=config,
+            num_bags_y0=num_bags_y0,
+            num_bags_y1=num_bags_y1,
+            w_per_class=w_per_class,
+            device=device,
+        )
 
-    y_syn = einops.rearrange(y_syn, 'b -> b 1')
-    w_syn = einops.rearrange(w_syn, 'b -> b 1')
+        y_syn = einops.rearrange(y_syn, 'b -> b 1')
+        w_syn = einops.rearrange(w_syn, 'b -> b 1')
 
-    train_ds_syn = [
-        (x_syn, y_syn, w_syn, group_syn, instance_type_syn)
-    ]
+        train_ds_syn = [
+            (x_syn, y_syn, w_syn, group_syn, instance_type_syn)
+        ]
 
-    y_syn = einops.rearrange(y_syn, 'b 1 -> b')
-    w_syn = einops.rearrange(w_syn, 'b 1 -> b')
+        pickle.dump(
+            (train_ds_syn, valid_ds, test_ds),
+            open(synthetic_pkl, "wb"),
+            protocol=pickle.HIGHEST_PROTOCOL,
+        )
 
-    pickle.dump(
-        (train_ds_syn, valid_ds, test_ds),
-        open(synthetic_pkl, "wb"),
-        protocol=pickle.HIGHEST_PROTOCOL,
-    )
-
-    bonus_bags_y0 = math.ceil(num_bags_y0 * 0.2)
-    bonus_bags_y1 = math.ceil(num_bags_y1 * 0.2)
+    bonus_bags_y0 = math.ceil(num_bags_y0 * bonus_ratio)
+    bonus_bags_y1 = math.ceil(num_bags_y1 * bonus_ratio)
 
     x_bonus, y_bonus, w_bonus, group_bonus, instance_type_bonus = generate_dataset(
         model=model,

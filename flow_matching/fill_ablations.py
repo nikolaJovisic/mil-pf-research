@@ -97,8 +97,8 @@ def format_val(v):
     return f"{v:.3f}"
 
 
-def update_tex(tex_path, updates_by_embedding):
-    label_to_config = {v: k for k, v in ROW_LABELS.items()}
+def update_tex(tex_path, updates_by_embedding, row_labels=ROW_LABELS):
+    label_to_config = {v: k for k, v in row_labels.items()}
 
     with open(tex_path) as f:
         lines = f.readlines()

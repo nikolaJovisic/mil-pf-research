@@ -1,0 +1,20 @@
+\begin{table}[H]
+\caption{Sensitivity of downstream classification to the proportion of synthetic bags added per class to the real training split. The \emph{Original} and $20\%$ rows are the results already reported in Table~\ref{tab:classification}; ratios not evaluated are left blank.\label{tab:augmentation_ratio}}
+\begin{tabularx}{\textwidth}{lCCCCCC}
+\toprule
+ & \multicolumn{3}{c}{\textbf{MedSigLIP}} & \multicolumn{3}{c}{\textbf{DINOv2}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+\textbf{Synthetic proportion}
+& AUC & bACC & Spec.
+& AUC & bACC & Spec. \\
+\midrule
+Original (0\%) & 0.904 & 0.841 & 0.698 & 0.896 & 0.833 & 0.657 \\
+\midrule
+5\% &  &  &  &  &  &  \\
+10\% &  &  &  &  &  &  \\
+20\% & 0.904 & 0.835 & 0.728 & 0.900 & 0.841 & 0.663 \\
+50\% &  &  &  &  &  &  \\
+100\% &  &  &  &  &  &  \\
+\bottomrule
+\end{tabularx}
+\end{table}
