@@ -2,7 +2,6 @@ import argparse
 import os
 import pickle
 
-import numpy as np
 import torch
 
 from head_training_ import _train, load_cfg
@@ -62,7 +61,7 @@ def main():
     report = EvaluationReport(torch.sigmoid(logits), labels)
     spec_90 = report.specificity_at(0.9)
     prob_threshold = next(
-        (t for t in np.linspace(1, 0, EvaluationReport.LINSPACE_STEPS) if report.sensitivity(t) >= 0.9),
+        (t for t in torch.linspace(1, 0, EvaluationReport.LINSPACE_STEPS).tolist() if report.sensitivity(t) >= 0.9),
         0.5,
     )
 

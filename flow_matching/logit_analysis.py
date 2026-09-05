@@ -59,23 +59,20 @@ def plot_class_density(encoder, cls, runs, out_dir):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from scipy.stats import gaussian_kde
 
     plt.figure(figsize=(6, 4))
 
     for regime, data in runs.items():
-        mask = data["labels"] == cls
-        logits = data["logits"][mask].numpy()
+        logits = data["logits"][data["labels"] == cls]
         if len(logits) < 2:
             continue
 
-        kde = gaussian_kde(logits)
-        xs = torch.linspace(logits.min() - 1, logits.max() + 1, 400).numpy()
-        plt.plot(xs, kde(xs), color=REGIME_COLORS[regime], label=REGIME_LABELS[regime])
-        plt.fill_between(xs, kde(xs), alpha=0.2, color=REGIME_COLORS[regime])
+        plt.hist(
+            logits.numpy(), bins=30, density=True, alpha=0.5,
+            color=REGIME_COLORS[regime], label=REGIME_LABELS[regime],
+        )
 
-        prob_threshold = data["prob_threshold_90"]
-        logit_threshold = torch.logit(torch.tensor(prob_threshold)).item()
+        logit_threshold = torch.logit(torch.tensor(data["prob_threshold_90"])).item()
         plt.axvline(logit_threshold, color=REGIME_COLORS[regime], linestyle="--", linewidth=1)
 
     plt.xlabel("Classifier logit")
