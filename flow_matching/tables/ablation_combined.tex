@@ -1,0 +1,21 @@
+\begin{table}[H]
+\caption{Ablation study results under the Combined (real + 20\% synthetic) regime, for the six most destructive variants of Table~\ref{tab:ablation}. The \emph{Full SetFlow} reference row is the combined-regime result already reported in Table~\ref{tab:classification}.\label{tab:ablation_combined}}
+\begin{tabularx}{\textwidth}{lCCCCCC}
+\toprule
+ & \multicolumn{3}{c}{\textbf{MedSigLIP}} & \multicolumn{3}{c}{\textbf{DINOv2}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+\textbf{Ablation}
+& AUC & bACC & Spec.
+& AUC & bACC & Spec. \\
+\midrule
+Full SetFlow & 0.904 & 0.835 & 0.728 & 0.900 & 0.841 & 0.663 \\
+\midrule
+TokenMLP depth 5 & -- & -- & -- & -- & -- & -- \\
+No stream cond. & -- & -- & -- & -- & -- & -- \\
+cond. dim 8 & -- & -- & -- & -- & -- & -- \\
+TokenMLP depth 1 & -- & -- & -- & -- & -- & -- \\
+ISAB only & -- & -- & -- & -- & -- & -- \\
+Single FiLM & -- & -- & -- & -- & -- & -- \\
+\bottomrule
+\end{tabularx}
+\end{table}
