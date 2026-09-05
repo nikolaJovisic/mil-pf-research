@@ -39,11 +39,11 @@ def parse_args():
     parser.add_argument("--msl", action="store_true", help="fill the MedSigLIP columns")
     parser.add_argument(
         "--v2_pickles_dir",
-        default="/lustre/data/cvrs.mammo.ivi/nj/cvpr2026/pickles/setflow/abl-v2-128",
+        default="/lustre/nj/cvpr2026/pickles/setflow/abl-v2-128",
     )
     parser.add_argument(
         "--msl_pickles_dir",
-        default="/lustre/data/cvrs.mammo.ivi/nj/cvpr2026/pickles/setflow/abl-msl-128",
+        default="/lustre/nj/cvpr2026/pickles/setflow/abl-msl-128",
     )
     parser.add_argument("--results_dir", default="results/ablations")
     parser.add_argument("--tex_path", default="ablation.tex")
