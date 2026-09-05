@@ -139,28 +139,28 @@ def main():
     if not args.v2 and not args.msl:
         raise ValueError("Pass --v2 and/or --msl.")
 
-    updates_by_embedding = {}
+    embeddings = [
+        ("msl", "MedSigLIP", args.msl_pickles_dir),
+        ("v2", "DINOv2", args.v2_pickles_dir),
+    ]
 
-    if args.msl:
-        print("=== MedSigLIP ablations ===")
-        results = {}
+    for embedding, label, pickles_dir in embeddings:
+        if not getattr(args, embedding):
+            continue
+
+        print(f"=== {label} ablations ===")
         for config_name in ROW_LABELS:
-            results[config_name] = run_config(
-                config_name, args.msl_pickles_dir, os.path.join(args.results_dir, "msl")
+            metrics = run_config(
+                config_name, pickles_dir, os.path.join(args.results_dir, embedding)
             )
-        updates_by_embedding["msl"] = results
+            if metrics is None:
+                continue
 
-    if args.v2:
-        print("=== DINOv2 ablations ===")
-        results = {}
-        for config_name in ROW_LABELS:
-            results[config_name] = run_config(
-                config_name, args.v2_pickles_dir, os.path.join(args.results_dir, "v2")
-            )
-        updates_by_embedding["v2"] = results
-
-    update_tex(args.tex_path, updates_by_embedding)
-    print(f"Updated {args.tex_path}")
+            # rewrite the table as each config lands rather than once at the
+            # end, so a crash or a kill partway through keeps whatever already
+            # finished instead of discarding the whole sweep
+            update_tex(args.tex_path, {embedding: {config_name: metrics}})
+            print(f"  updated {args.tex_path} with '{config_name}'")
 
 
 if __name__ == "__main__":
