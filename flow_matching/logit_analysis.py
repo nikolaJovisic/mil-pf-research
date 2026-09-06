@@ -37,6 +37,8 @@ def parse_args():
                         action="store_true",
                         help="plot straight from the .pt logits already in --work_dir, training nothing")
     parser.add_argument("--extract_only", action="store_true", help="save logits without plotting them")
+    parser.add_argument("--trim", type=float, default=0.05,
+                        help="fraction clipped off each tail when choosing the x range (0 to disable)")
     parser.add_argument("--runs", type=int, default=8, help="trainings per regime; best test AUC wins, as in manual_grid_search.py")
     parser.add_argument("--gpus", type=int, default=None, help="GPUs to spread those trainings over (default: all visible)")
     parser.add_argument("--reuse_runs", "--reuse-runs", dest="reuse_runs", action="store_true", help="keep runs already on disk instead of retraining them")
@@ -101,8 +103,15 @@ def pr_curve(scores, labels):
 
 def kde(samples, grid):
     # Gaussian KDE with Silverman's rule; the pooled logits are bimodal, so a
-    # smooth curve reads far better than three overlapping histograms
-    bandwidth = 1.06 * samples.std().item() * samples.numel() ** -0.2
+    # smooth curve reads far better than three overlapping histograms.
+    # Silverman's robust form, min(std, IQR/1.349), rather than std alone: a
+    # handful of saturated logits inflates std enough to smooth the bell flat.
+    s = samples.float()
+    q1, q3 = torch.quantile(s, torch.tensor([0.25, 0.75])).tolist()
+    spread = min(s.std().item(), (q3 - q1) / 1.349) or s.std().item()
+    bandwidth = 0.9 * spread * s.numel() ** -0.2
+    if bandwidth <= 0:
+        bandwidth = 1.0
     z = (grid[:, None] - samples[None, :]) / bandwidth
     return torch.exp(-0.5 * z ** 2).sum(1) / (samples.numel() * bandwidth * math.sqrt(2 * math.pi))
 
@@ -125,9 +134,29 @@ def _save(plt, out_dir, filename):
     print(f"wrote {path}")
 
 
-def _grid(*sample_sets):
-    lo = min(t.min().item() for t in sample_sets)
-    hi = max(t.max().item() for t in sample_sets)
+def _bounds(samples, trim):
+    if trim <= 0:
+        return samples.min().item(), samples.max().item()
+    q = torch.tensor([trim, 1.0 - trim])
+    lo, hi = torch.quantile(samples.float(), q).tolist()
+    return lo, hi
+
+
+def _grid(sample_sets, trim, include=()):
+    """x range covering each set's central 1-2*trim mass, plus `include` points.
+
+    Taken per set and then unioned rather than over the pooled samples, so a
+    regime with a wide spread cannot swallow a narrow one -- and clipped by
+    quantile rather than min/max, because a few saturated logits at +-30 would
+    otherwise squeeze every bell into a spike at the origin.
+    """
+    bounds = [_bounds(t, trim) for t in sample_sets if t.numel() >= 2]
+    lo = min(b[0] for b in bounds)
+    hi = max(b[1] for b in bounds)
+    for v in include:
+        # the decision threshold has to stay on screen even if it sits out in
+        # a trimmed tail, which is exactly the case worth seeing
+        lo, hi = min(lo, v), max(hi, v)
     pad = 0.05 * (hi - lo)
     return torch.linspace(lo - pad, hi + pad, GRID_POINTS)
 
@@ -154,11 +183,10 @@ def _class_panel(ax, data, grid, title):
     ax.set_xlabel("Classifier logit")
 
 
-def plot_pooled(encoder, runs, out_dir):
+def plot_pooled(encoder, runs, out_dir, grid):
     """One curve per regime, both classes pooled."""
     plt = _pyplot()
     plt.figure(figsize=(6, 4))
-    grid = _grid(*[d["logits"] for d in runs.values()])
 
     for regime, data in runs.items():
         color = REGIME_COLORS[regime]
@@ -172,9 +200,13 @@ def plot_pooled(encoder, runs, out_dir):
     _save(plt, out_dir, f"{encoder}_logits_pooled.png")
 
 
-def plot_regime_classes(encoder, regime, data, out_dir, grid):
-    """One regime, benign vs malignant."""
+def plot_regime_classes(encoder, regime, data, out_dir, trim):
+    """One regime, benign vs malignant, scaled to its own spread."""
     plt = _pyplot()
+    # standalone figure, so it gets its own range: nothing here is being
+    # compared across regimes, and a shared range only wastes the axis
+    grid = _grid([data["logits"][data["labels"] == c] for c in CLASS_LABELS],
+                 trim, include=[_threshold(data)])
     fig, ax = plt.subplots(figsize=(6, 4))
     _class_panel(ax, data, grid, f"{encoder.upper()} {REGIME_LABELS[regime]}")
     ax.set_ylabel("Density (per class)")
@@ -261,15 +293,20 @@ def plot_pr(encoder, runs, out_dir):
     _save(plt, out_dir, f"{encoder}_pr.png")
 
 
-def plot_all(encoder, runs, out_dir):
-    # one grid shared by every class-split figure, so the three regimes are
-    # directly comparable rather than each auto-scaled to its own range
-    grid = _grid(*[d["logits"] for d in runs.values()])
+def plot_all(encoder, runs, out_dir, trim):
+    # one grid shared by every figure that puts regimes side by side, so those
+    # stay directly comparable; the standalone per-regime figures scale
+    # themselves instead
+    grid = _grid(
+        [d["logits"][d["labels"] == c] for d in runs.values() for c in CLASS_LABELS],
+        trim,
+        include=[_threshold(d) for d in runs.values()],
+    )
 
-    plot_pooled(encoder, runs, out_dir)
+    plot_pooled(encoder, runs, out_dir, grid)
     plot_regime_grid(encoder, runs, out_dir, grid)
     for regime, data in runs.items():
-        plot_regime_classes(encoder, regime, data, out_dir, grid)
+        plot_regime_classes(encoder, regime, data, out_dir, trim)
     for cls in CLASS_LABELS:
         plot_class_across_regimes(encoder, cls, runs, out_dir, grid)
     plot_roc(encoder, runs, out_dir)
@@ -313,7 +350,7 @@ def main():
         if args.extract_only:
             continue
 
-        plot_all(encoder, runs, args.out_dir)
+        plot_all(encoder, runs, args.out_dir, args.trim)
 
 
 if __name__ == "__main__":
