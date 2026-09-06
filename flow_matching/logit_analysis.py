@@ -32,6 +32,9 @@ def parse_args():
     parser.add_argument("--out_dir", default="logit_figs")
     parser.add_argument("--skip_extraction", action="store_true", help="reuse .pt files already in --work_dir")
     parser.add_argument("--extract_only", action="store_true", help="save logits without plotting them")
+    parser.add_argument("--runs", type=int, default=8, help="trainings per regime; best test AUC wins, as in manual_grid_search.py")
+    parser.add_argument("--gpus", type=int, default=None, help="GPUs to spread those trainings over (default: all visible)")
+    parser.add_argument("--reuse_runs", action="store_true", help="keep runs already on disk instead of retraining them")
     parser.add_argument("--per_class", action="store_true", help="also write the per-class logit histograms")
     return parser.parse_args()
 
@@ -40,19 +43,21 @@ def pickle_paths(encoder, args):
     return {regime: getattr(args, f"{regime}_pkl_{encoder}") for regime in REGIME_LABELS}
 
 
-def extract(encoder, regime, pkl_path, work_dir):
+def extract(encoder, regime, pkl_path, work_dir, args):
     out_path = os.path.join(work_dir, f"{encoder}_{regime}.pt")
     print(f"=== {encoder}/{regime}: training classifier on {pkl_path} ===")
-    subprocess.run(
-        [
-            sys.executable, "extract_logits.py",
-            "--pickle-path", os.path.abspath(pkl_path),
-            "--out", os.path.abspath(out_path),
-            "--run-id", f"logit_{encoder}_{regime}",
-        ],
-        cwd=HEAD_TRAINING_DIR,
-        check=True,
-    )
+    cmd = [
+        sys.executable, "extract_logits.py",
+        "--pickle-path", os.path.abspath(pkl_path),
+        "--out", os.path.abspath(out_path),
+        "--run-id", f"logit_{encoder}_{regime}",
+        "--runs", str(args.runs),
+    ]
+    if args.gpus is not None:
+        cmd += ["--gpus", str(args.gpus)]
+    if args.reuse_runs:
+        cmd += ["--reuse-runs"]
+    subprocess.run(cmd, cwd=HEAD_TRAINING_DIR, check=True)
     return out_path
 
 
@@ -230,14 +235,23 @@ def main():
         for regime, pkl_path in pkls.items():
             out_path = os.path.join(args.work_dir, f"{encoder}_{regime}.pt")
             if not (args.skip_extraction and os.path.exists(out_path)):
-                out_path = extract(encoder, regime, pkl_path, args.work_dir)
+                out_path = extract(encoder, regime, pkl_path, args.work_dir, args)
             # weights_only=False so files written before the float() fix in
             # extract_logits.py, which carry numpy scalars, still load
             runs[regime] = torch.load(out_path, weights_only=False)
-            print(
-                f"  {encoder}/{regime}: AUC={runs[regime]['auc']:.3f}, "
-                f"Spec@90={runs[regime]['spec_90']:.3f}"
-            )
+            data = runs[regime]
+            line = f"  {encoder}/{regime}: AUC={data['auc']:.3f}, Spec@90={data['spec_90']:.3f}"
+            if "auc_all" in data:
+                # the reported run is the best of N; the spread over all N is
+                # what says whether a gap between two regimes is real noise
+                aucs = torch.tensor(data["auc_all"])
+                specs = torch.tensor(data["spec_90_all"])
+                line += (
+                    f"  (best of {data['runs']}; "
+                    f"AUC {aucs.mean():.3f}+-{aucs.std(unbiased=False):.3f}, "
+                    f"Spec@90 {specs.mean():.3f}+-{specs.std(unbiased=False):.3f})"
+                )
+            print(line)
 
         if args.extract_only:
             continue
