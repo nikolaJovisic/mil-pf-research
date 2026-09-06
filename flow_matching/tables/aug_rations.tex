@@ -1,0 +1,17 @@
+\begin{table}[H]
+\caption{Sensitivity of downstream classification to the proportion of synthetic bags added per class to the real DINOv2 training split. The \emph{Original} and $20\%$ rows are the results already reported in Table~\ref{tab:classification}.\label{tab:augmentation_ratio}}
+\begin{tabularx}{\textwidth}{lCCC}
+\toprule
+\textbf{Synthetic proportion}
+& AUC & bACC & Spec. \\
+\midrule
+Original (0\%) & 0.896 & 0.833 & 0.657 \\
+\midrule
+5\% & 0.889 & 0.828 & 0.618 \\
+10\% & 0.890 & 0.830 & 0.623 \\
+20\% & 0.900 & 0.841 & 0.663 \\
+50\% & 0.883 & 0.817 & 0.617 \\
+100\% & 0.876 & 0.803 & 0.632 \\
+\bottomrule
+\end{tabularx}
+\end{table}
