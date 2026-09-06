@@ -11,6 +11,8 @@ HEAD_TRAINING_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."
 # order matters: it fixes the legend/plot order in every figure
 REGIME_LABELS = {"original": "Original", "combined": "Combined", "synthetic": "Synthetic-only"}
 REGIME_COLORS = {"original": "tab:blue", "combined": "tab:green", "synthetic": "tab:orange"}
+# short names used to build the per-regime --reuse-*-logits flags
+REGIME_SHORT = {"original": "orig", "combined": "comb", "synthetic": "synth"}
 CLASS_LABELS = {0: "Benign (y=0)", 1: "Malignant (y=1)"}
 CLASS_COLORS = {0: "tab:blue", 1: "tab:red"}
 
@@ -36,6 +38,13 @@ def parse_args():
     parser.add_argument("--reuse_logits", "--reuse-logits", "--skip_extraction", dest="reuse_logits",
                         action="store_true",
                         help="plot straight from the .pt logits already in --work_dir, training nothing")
+    # per-regime equivalents, so a single regime can be recomputed while the
+    # other two are read back off disk -- generated from REGIME_SHORT rather
+    # than written out, so a new regime cannot pick up a flag by accident
+    for _regime, _short in REGIME_SHORT.items():
+        parser.add_argument(f"--reuse_{_short}_logits", f"--reuse-{_short}-logits",
+                            dest=f"reuse_{_regime}", action="store_true",
+                            help=f"reuse the saved {_regime} logits instead of retraining them")
     parser.add_argument("--extract_only", action="store_true", help="save logits without plotting them")
     parser.add_argument("--trim", type=float, default=0.05,
                         help="fraction clipped off each tail when choosing the x range (0 to disable)")
@@ -43,6 +52,12 @@ def parse_args():
     parser.add_argument("--gpus", type=int, default=None, help="GPUs to spread those trainings over (default: all visible)")
     parser.add_argument("--reuse_runs", "--reuse-runs", dest="reuse_runs", action="store_true", help="keep runs already on disk instead of retraining them")
     return parser.parse_args()
+
+
+def reused_regimes(args):
+    if args.reuse_logits:
+        return set(REGIME_LABELS)
+    return {r for r in REGIME_LABELS if getattr(args, f"reuse_{r}")}
 
 
 def pickle_paths(encoder, args):
@@ -318,18 +333,37 @@ def main():
     os.makedirs(args.work_dir, exist_ok=True)
     os.makedirs(args.out_dir, exist_ok=True)
 
+    reuse = reused_regimes(args)
+
     for encoder in args.encoders:
         pkls = pickle_paths(encoder, args)
-        missing = [regime for regime, path in pkls.items() if not path]
+
+        # work out which regimes actually need training before demanding any
+        # pickle paths, so reusing two of them means only the third one's
+        # --*_pkl_* has to be passed at all
+        saved = {}
+        needed = []
+        for regime in REGIME_LABELS:
+            out_path = os.path.join(args.work_dir, f"{encoder}_{regime}.pt")
+            if regime in reuse:
+                if os.path.exists(out_path):
+                    saved[regime] = out_path
+                    continue
+                print(f"  [warn] {encoder}/{regime}: asked to reuse but {out_path} is missing; retraining it")
+            needed.append(regime)
+
+        missing = [r for r in needed if not pkls[r]]
         if missing:
             print(f"=== skipping {encoder}: missing {', '.join('--%s_pkl_%s' % (r, encoder) for r in missing)} ===")
             continue
+        if saved:
+            print(f"=== {encoder}: reusing {', '.join(sorted(saved))}; training {', '.join(needed) or 'nothing'} ===")
 
         runs = {}
-        for regime, pkl_path in pkls.items():
-            out_path = os.path.join(args.work_dir, f"{encoder}_{regime}.pt")
-            if not (args.reuse_logits and os.path.exists(out_path)):
-                out_path = extract(encoder, regime, pkl_path, args.work_dir, args)
+        for regime in REGIME_LABELS:
+            out_path = saved.get(regime)
+            if out_path is None:
+                out_path = extract(encoder, regime, pkls[regime], args.work_dir, args)
             # weights_only=False so files written before the float() fix in
             # extract_logits.py, which carry numpy scalars, still load
             runs[regime] = torch.load(out_path, weights_only=False)
