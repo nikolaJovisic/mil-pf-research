@@ -6,6 +6,7 @@ from fill_ablations import run_config, update_tex
 # maps the pickle subdirectory written by augmentation_ratio.py -> row label
 # as it appears in augmentation_ratio.tex
 ROW_LABELS = {
+    "ratio_00": "Original (0\\%)",
     "ratio_05": "5\\%",
     "ratio_10": "10\\%",
     "ratio_20": "20\\%",

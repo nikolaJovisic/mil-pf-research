@@ -1,5 +1,6 @@
 import argparse
 import os
+import pickle
 
 from configs import CONFIGS, SetFlowConfig
 from inference import run_inference
@@ -30,6 +31,32 @@ def ratio_name(ratio):
     return f"ratio_{round(ratio * 100):02d}"
 
 
+def write_zero_ratio(input_pkl, out_dir, config_name):
+    """Pack the real training split as the 0% pickle -- no model, no sampling.
+
+    Deliberately rebuilt the way run_inference() packs its output rather than
+    copied: run_inference reads only train_ds[0] and reshapes y/w to (b, 1), so
+    a plain file copy would differ in structure whenever train_ds holds more
+    than one element. Going through the same shaping keeps ratio_00 different
+    from the other ratios in exactly one respect -- it has no bonus bags.
+    """
+    save_dir = os.path.join(out_dir, config_name)
+    os.makedirs(save_dir, exist_ok=True)
+    output_pkl = os.path.join(save_dir, "combined.pkl")
+
+    train_ds, valid_ds, test_ds = pickle.load(open(input_pkl, "rb"))
+    x, y, w, group, instance_type = train_ds[0]
+    # run_inference does y.view(-1) and then rearrange('b -> b 1')
+    train_ds_0 = [(x, y.view(-1, 1), w.view(-1, 1), group, instance_type)]
+
+    pickle.dump(
+        (train_ds_0, valid_ds, test_ds),
+        open(output_pkl, "wb"),
+        protocol=pickle.HIGHEST_PROTOCOL,
+    )
+    return output_pkl
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ratios", nargs="*", type=float, default=DEFAULT_RATIOS)
@@ -58,18 +85,28 @@ def main():
     for encoder in args.encoders:
         p = paths[encoder]
         weights_path = os.path.join(p["weights_dir"], args.config, "setflow.pth")
-        if not os.path.exists(weights_path):
-            print(f"=== skipping {encoder}: no weights found at {weights_path} ===")
-            continue
 
         for ratio in args.ratios:
             name = ratio_name(ratio)
+            out_dir = os.path.join(p["out_dir"], name)
+
+            if ratio == 0:
+                # nothing is generated at 0%, so this needs no weights -- which
+                # is why the weights check below is per-ratio, not per-encoder
+                written = write_zero_ratio(p["input_pkl"], out_dir, args.config)
+                print(f"=== {encoder}: packed the real training split as {name} -> {written} ===")
+                continue
+
+            if not os.path.exists(weights_path):
+                print(f"=== skipping {encoder}/{name}: no weights found at {weights_path} ===")
+                continue
+
             print(f"=== {encoder}: generating {ratio:.0%} bonus bags ({name}) ===")
             run_inference(
                 config_name=args.config,
                 weights_dir=p["weights_dir"],
                 input_pkl=p["input_pkl"],
-                out_dir=os.path.join(p["out_dir"], name),
+                out_dir=out_dir,
                 bonus_ratio=ratio,
                 # only the combined set varies with the ratio; the
                 # synthetic-only set would be identical every time
