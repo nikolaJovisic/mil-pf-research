@@ -12,6 +12,7 @@ HEAD_TRAINING_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."
 REGIME_LABELS = {"original": "Original", "combined": "Combined", "synthetic": "Synthetic-only"}
 REGIME_COLORS = {"original": "tab:blue", "combined": "tab:green", "synthetic": "tab:orange"}
 CLASS_LABELS = {0: "Benign (y=0)", 1: "Malignant (y=1)"}
+CLASS_COLORS = {0: "tab:blue", 1: "tab:red"}
 
 GRID_POINTS = 512
 
@@ -30,12 +31,15 @@ def parse_args():
     parser.add_argument("--synthetic_pkl_v2")
     parser.add_argument("--work_dir", default="results/logit_analysis")
     parser.add_argument("--out_dir", default="logit_figs")
-    parser.add_argument("--skip_extraction", action="store_true", help="reuse .pt files already in --work_dir")
+    # --skip_extraction is the original spelling, kept working so existing
+    # invocations don't break
+    parser.add_argument("--reuse_logits", "--reuse-logits", "--skip_extraction", dest="reuse_logits",
+                        action="store_true",
+                        help="plot straight from the .pt logits already in --work_dir, training nothing")
     parser.add_argument("--extract_only", action="store_true", help="save logits without plotting them")
     parser.add_argument("--runs", type=int, default=8, help="trainings per regime; best test AUC wins, as in manual_grid_search.py")
     parser.add_argument("--gpus", type=int, default=None, help="GPUs to spread those trainings over (default: all visible)")
-    parser.add_argument("--reuse_runs", action="store_true", help="keep runs already on disk instead of retraining them")
-    parser.add_argument("--per_class", action="store_true", help="also write the per-class logit histograms")
+    parser.add_argument("--reuse_runs", "--reuse-runs", dest="reuse_runs", action="store_true", help="keep runs already on disk instead of retraining them")
     return parser.parse_args()
 
 
@@ -121,31 +125,93 @@ def _save(plt, out_dir, filename):
     print(f"wrote {path}")
 
 
-def plot_logit_density(encoder, runs, out_dir):
+def _grid(*sample_sets):
+    lo = min(t.min().item() for t in sample_sets)
+    hi = max(t.max().item() for t in sample_sets)
+    pad = 0.05 * (hi - lo)
+    return torch.linspace(lo - pad, hi + pad, GRID_POINTS)
+
+
+def _curve(ax, samples, grid, color, label):
+    if samples.numel() < 2:
+        return
+    density = kde(samples, grid)
+    ax.plot(grid.numpy(), density.numpy(), color=color, lw=1.8, label=label)
+    ax.fill_between(grid.numpy(), density.numpy(), color=color, alpha=0.12)
+
+
+def _threshold(data):
+    return torch.logit(torch.tensor(data["prob_threshold_90"])).item()
+
+
+def _class_panel(ax, data, grid, title):
+    # each class normalised on its own, so the separation stays readable even
+    # though benign outnumbers malignant roughly 3:1 in the test split
+    for cls, color in CLASS_COLORS.items():
+        _curve(ax, data["logits"][data["labels"] == cls], grid, color, CLASS_LABELS[cls])
+    ax.axvline(_threshold(data), color="0.35", linestyle="--", linewidth=1)
+    ax.set_title(title)
+    ax.set_xlabel("Classifier logit")
+
+
+def plot_pooled(encoder, runs, out_dir):
+    """One curve per regime, both classes pooled."""
     plt = _pyplot()
     plt.figure(figsize=(6, 4))
-
-    lo = min(data["logits"].min().item() for data in runs.values())
-    hi = max(data["logits"].max().item() for data in runs.values())
-    pad = 0.05 * (hi - lo)
-    grid = torch.linspace(lo - pad, hi + pad, GRID_POINTS)
+    grid = _grid(*[d["logits"] for d in runs.values()])
 
     for regime, data in runs.items():
-        # both classes pooled: this is the full test-set score distribution the
-        # Spec@90 threshold is actually swept over
-        density = kde(data["logits"], grid)
         color = REGIME_COLORS[regime]
-        plt.plot(grid.numpy(), density.numpy(), color=color, lw=1.8, label=REGIME_LABELS[regime])
-        plt.fill_between(grid.numpy(), density.numpy(), color=color, alpha=0.12)
-
-        logit_threshold = torch.logit(torch.tensor(data["prob_threshold_90"])).item()
-        plt.axvline(logit_threshold, color=color, linestyle="--", linewidth=1)
+        _curve(plt.gca(), data["logits"], grid, color, REGIME_LABELS[regime])
+        plt.axvline(_threshold(data), color=color, linestyle="--", linewidth=1)
 
     plt.xlabel("Classifier logit")
     plt.ylabel("Density")
     plt.title(f"{encoder.upper()} test-set logits, both classes pooled\n(dashed = each regime's own Spec@Sens=0.9 threshold)")
     plt.legend()
-    _save(plt, out_dir, f"{encoder}_logits.png")
+    _save(plt, out_dir, f"{encoder}_logits_pooled.png")
+
+
+def plot_regime_classes(encoder, regime, data, out_dir, grid):
+    """One regime, benign vs malignant."""
+    plt = _pyplot()
+    fig, ax = plt.subplots(figsize=(6, 4))
+    _class_panel(ax, data, grid, f"{encoder.upper()} {REGIME_LABELS[regime]}")
+    ax.set_ylabel("Density (per class)")
+    ax.legend()
+    _save(plt, out_dir, f"{encoder}_logits_{regime}.png")
+
+
+def plot_regime_grid(encoder, runs, out_dir, grid):
+    """All three regimes side by side, each split by class, on shared axes."""
+    plt = _pyplot()
+    fig, axes = plt.subplots(1, len(runs), figsize=(5 * len(runs), 4), sharex=True, sharey=True)
+    axes = axes if hasattr(axes, "__len__") else [axes]
+
+    for ax, (regime, data) in zip(axes, runs.items()):
+        _class_panel(ax, data, grid, REGIME_LABELS[regime])
+
+    axes[0].set_ylabel("Density (per class)")
+    axes[0].legend()
+    fig.suptitle(f"{encoder.upper()} test-set logits by class (dashed = that regime's Spec@Sens=0.9 threshold)")
+    _save(plt, out_dir, f"{encoder}_logits_grid.png")
+
+
+def plot_class_across_regimes(encoder, cls, runs, out_dir, grid):
+    """One class, all three regimes overlaid."""
+    plt = _pyplot()
+    plt.figure(figsize=(6, 4))
+
+    for regime, data in runs.items():
+        color = REGIME_COLORS[regime]
+        _curve(plt.gca(), data["logits"][data["labels"] == cls], grid, color, REGIME_LABELS[regime])
+        plt.axvline(_threshold(data), color=color, linestyle="--", linewidth=1)
+
+    plt.xlabel("Classifier logit")
+    plt.ylabel("Density")
+    plt.title(f"{encoder.upper()} test-set logits -- {CLASS_LABELS[cls]}\n(dashed = each regime's own Spec@Sens=0.9 threshold)")
+    plt.legend()
+    _save(plt, out_dir, f"{encoder}_logits_class{cls}.png")
 
 
 def plot_roc(encoder, runs, out_dir):
@@ -195,28 +261,19 @@ def plot_pr(encoder, runs, out_dir):
     _save(plt, out_dir, f"{encoder}_pr.png")
 
 
-def plot_class_density(encoder, cls, runs, out_dir):
-    plt = _pyplot()
-    plt.figure(figsize=(6, 4))
+def plot_all(encoder, runs, out_dir):
+    # one grid shared by every class-split figure, so the three regimes are
+    # directly comparable rather than each auto-scaled to its own range
+    grid = _grid(*[d["logits"] for d in runs.values()])
 
+    plot_pooled(encoder, runs, out_dir)
+    plot_regime_grid(encoder, runs, out_dir, grid)
     for regime, data in runs.items():
-        logits = data["logits"][data["labels"] == cls]
-        if len(logits) < 2:
-            continue
-
-        plt.hist(
-            logits.numpy(), bins=30, density=True, alpha=0.5,
-            color=REGIME_COLORS[regime], label=REGIME_LABELS[regime],
-        )
-
-        logit_threshold = torch.logit(torch.tensor(data["prob_threshold_90"])).item()
-        plt.axvline(logit_threshold, color=REGIME_COLORS[regime], linestyle="--", linewidth=1)
-
-    plt.xlabel("Classifier logit")
-    plt.ylabel("Density")
-    plt.title(f"{encoder.upper()} test-set logits -- {CLASS_LABELS[cls]}\n(dashed = each regime's own Spec@Sens=0.9 threshold)")
-    plt.legend()
-    _save(plt, out_dir, f"{encoder}_class{cls}_logits.png")
+        plot_regime_classes(encoder, regime, data, out_dir, grid)
+    for cls in CLASS_LABELS:
+        plot_class_across_regimes(encoder, cls, runs, out_dir, grid)
+    plot_roc(encoder, runs, out_dir)
+    plot_pr(encoder, runs, out_dir)
 
 
 def main():
@@ -234,7 +291,7 @@ def main():
         runs = {}
         for regime, pkl_path in pkls.items():
             out_path = os.path.join(args.work_dir, f"{encoder}_{regime}.pt")
-            if not (args.skip_extraction and os.path.exists(out_path)):
+            if not (args.reuse_logits and os.path.exists(out_path)):
                 out_path = extract(encoder, regime, pkl_path, args.work_dir, args)
             # weights_only=False so files written before the float() fix in
             # extract_logits.py, which carry numpy scalars, still load
@@ -256,13 +313,7 @@ def main():
         if args.extract_only:
             continue
 
-        plot_logit_density(encoder, runs, args.out_dir)
-        plot_roc(encoder, runs, args.out_dir)
-        plot_pr(encoder, runs, args.out_dir)
-
-        if args.per_class:
-            for cls in (0, 1):
-                plot_class_density(encoder, cls, runs, args.out_dir)
+        plot_all(encoder, runs, args.out_dir)
 
 
 if __name__ == "__main__":
