@@ -56,6 +56,12 @@ def parse_args():
                             dest=f"drop_{_regime}", action="store_true",
                             help=f"leave {_regime} out of the run entirely -- not trained, not plotted")
     parser.add_argument("--extract_only", action="store_true", help="save logits without plotting them")
+    parser.add_argument("--roc_zoom_x", "--roc-zoom-x", dest="roc_zoom_x", nargs=2, type=float,
+                        default=[0.8, 1.0], metavar=("LO", "HI"),
+                        help="x (false positive rate) limits of the zoomed ROC")
+    parser.add_argument("--roc_zoom_y", "--roc-zoom-y", dest="roc_zoom_y", nargs=2, type=float,
+                        default=[0.9, 1.0], metavar=("LO", "HI"),
+                        help="y (sensitivity) limits of the zoomed ROC")
     parser.add_argument("--trim", type=float, default=0.05,
                         help="fraction clipped off each tail when choosing the x range (0 to disable)")
     parser.add_argument("--runs", type=int, default=8, help="trainings per regime; best test AUC wins, as in manual_grid_search.py")
@@ -278,7 +284,8 @@ def plot_class_across_regimes(encoder, cls, runs, out_dir, grid):
     _save(plt, out_dir, f"{encoder}_logits_class{cls}.png")
 
 
-def plot_roc(encoder, runs, out_dir):
+def plot_roc(encoder, runs, out_dir, xlim=None, ylim=None):
+    zoom = xlim is not None or ylim is not None
     plt = _pyplot()
     plt.figure(figsize=(5, 5))
 
@@ -295,9 +302,20 @@ def plot_roc(encoder, runs, out_dir):
     plt.plot([0, 1], [0, 1], color="0.6", linestyle="--", linewidth=1)
     plt.xlabel("False positive rate (1 - specificity)")
     plt.ylabel("True positive rate (sensitivity)")
-    plt.title("ROC\n(X = Sens=0.9 operating point)")
+
+    if zoom:
+        # drawn from the full curves and then clipped, so the visible segment is
+        # the real one -- not a curve recomputed on a subset of thresholds
+        if xlim:
+            plt.xlim(*xlim)
+        if ylim:
+            plt.ylim(*ylim)
+        # the whole point of the zoom is reading small vertical gaps
+        plt.grid(True, alpha=0.3, linewidth=0.6)
+
+    plt.title(("ROC, zoomed" if zoom else "ROC") + "\n(X = Sens=0.9 operating point)")
     plt.legend(loc="lower right")
-    _save(plt, out_dir, f"{encoder}_roc.png")
+    _save(plt, out_dir, f"{encoder}_roc{'_zoom' if zoom else ''}.png")
 
 
 def plot_pr(encoder, runs, out_dir):
@@ -325,7 +343,7 @@ def plot_pr(encoder, runs, out_dir):
     _save(plt, out_dir, f"{encoder}_pr.png")
 
 
-def plot_all(encoder, runs, out_dir, trim):
+def plot_all(encoder, runs, out_dir, trim, roc_zoom_x=None, roc_zoom_y=None):
     # one grid shared by every figure that puts regimes side by side, so those
     # stay directly comparable; the standalone per-regime figures scale
     # themselves instead
@@ -342,6 +360,7 @@ def plot_all(encoder, runs, out_dir, trim):
     for cls in CLASS_LABELS:
         plot_class_across_regimes(encoder, cls, runs, out_dir, grid)
     plot_roc(encoder, runs, out_dir)
+    plot_roc(encoder, runs, out_dir, xlim=roc_zoom_x, ylim=roc_zoom_y)
     plot_pr(encoder, runs, out_dir)
 
 
@@ -404,7 +423,8 @@ def main():
         if args.extract_only:
             continue
 
-        plot_all(encoder, runs, args.out_dir, args.trim)
+        plot_all(encoder, runs, args.out_dir, args.trim,
+                 roc_zoom_x=args.roc_zoom_x, roc_zoom_y=args.roc_zoom_y)
 
 
 if __name__ == "__main__":
