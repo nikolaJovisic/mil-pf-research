@@ -13,6 +13,13 @@ REGIME_LABELS = {"original": "Original", "combined": "Combined", "synthetic": "S
 REGIME_COLORS = {"original": "tab:blue", "combined": "tab:green", "synthetic": "tab:orange"}
 # short names used to build the per-regime --reuse-*-logits flags
 REGIME_SHORT = {"original": "orig", "combined": "comb", "synthetic": "synth"}
+
+# the Sens=0.9 operating point, drawn in one fixed colour rather than each
+# curve's own: it has to read as an annotation on top of the curves, not as
+# another series
+OP_MARKER = dict(marker="X", markersize=11, color="black",
+                 markeredgecolor="white", markeredgewidth=1.4,
+                 linestyle="none", zorder=5)
 CLASS_LABELS = {0: "Benign (y=0)", 1: "Malignant (y=1)"}
 CLASS_COLORS = {0: "tab:blue", 1: "tab:red"}
 
@@ -45,6 +52,9 @@ def parse_args():
         parser.add_argument(f"--reuse_{_short}_logits", f"--reuse-{_short}-logits",
                             dest=f"reuse_{_regime}", action="store_true",
                             help=f"reuse the saved {_regime} logits instead of retraining them")
+        parser.add_argument(f"--drop_{_short}", f"--drop-{_short}",
+                            dest=f"drop_{_regime}", action="store_true",
+                            help=f"leave {_regime} out of the run entirely -- not trained, not plotted")
     parser.add_argument("--extract_only", action="store_true", help="save logits without plotting them")
     parser.add_argument("--trim", type=float, default=0.05,
                         help="fraction clipped off each tail when choosing the x range (0 to disable)")
@@ -52,6 +62,13 @@ def parse_args():
     parser.add_argument("--gpus", type=int, default=None, help="GPUs to spread those trainings over (default: all visible)")
     parser.add_argument("--reuse_runs", "--reuse-runs", dest="reuse_runs", action="store_true", help="keep runs already on disk instead of retraining them")
     return parser.parse_args()
+
+
+def active_regimes(args):
+    active = [r for r in REGIME_LABELS if not getattr(args, f"drop_{r}")]
+    if not active:
+        raise ValueError("every regime dropped; nothing left to plot")
+    return active
 
 
 def reused_regimes(args):
@@ -210,7 +227,7 @@ def plot_pooled(encoder, runs, out_dir, grid):
 
     plt.xlabel("Classifier logit")
     plt.ylabel("Density")
-    plt.title(f"{encoder.upper()} test-set logits, both classes pooled\n(dashed = each regime's own Spec@Sens=0.9 threshold)")
+    plt.title("Test-set logits, both classes pooled\n(dashed = each regime's own Spec@Sens=0.9 threshold)")
     plt.legend()
     _save(plt, out_dir, f"{encoder}_logits_pooled.png")
 
@@ -223,7 +240,7 @@ def plot_regime_classes(encoder, regime, data, out_dir, trim):
     grid = _grid([data["logits"][data["labels"] == c] for c in CLASS_LABELS],
                  trim, include=[_threshold(data)])
     fig, ax = plt.subplots(figsize=(6, 4))
-    _class_panel(ax, data, grid, f"{encoder.upper()} {REGIME_LABELS[regime]}")
+    _class_panel(ax, data, grid, REGIME_LABELS[regime])
     ax.set_ylabel("Density (per class)")
     ax.legend()
     _save(plt, out_dir, f"{encoder}_logits_{regime}.png")
@@ -240,7 +257,7 @@ def plot_regime_grid(encoder, runs, out_dir, grid):
 
     axes[0].set_ylabel("Density (per class)")
     axes[0].legend()
-    fig.suptitle(f"{encoder.upper()} test-set logits by class (dashed = that regime's Spec@Sens=0.9 threshold)")
+    fig.suptitle("Test-set logits by class (dashed = that regime's Spec@Sens=0.9 threshold)")
     _save(plt, out_dir, f"{encoder}_logits_grid.png")
 
 
@@ -256,7 +273,7 @@ def plot_class_across_regimes(encoder, cls, runs, out_dir, grid):
 
     plt.xlabel("Classifier logit")
     plt.ylabel("Density")
-    plt.title(f"{encoder.upper()} test-set logits -- {CLASS_LABELS[cls]}\n(dashed = each regime's own Spec@Sens=0.9 threshold)")
+    plt.title(f"Test-set logits -- {CLASS_LABELS[cls]}\n(dashed = each regime's own Spec@Sens=0.9 threshold)")
     plt.legend()
     _save(plt, out_dir, f"{encoder}_logits_class{cls}.png")
 
@@ -266,19 +283,19 @@ def plot_roc(encoder, runs, out_dir):
     plt.figure(figsize=(5, 5))
 
     for regime, data in runs.items():
-        fpr, tpr, auc = roc_curve(data["logits"], data["labels"])
-        color = REGIME_COLORS[regime]
-        plt.plot(fpr.numpy(), tpr.numpy(), color=color, lw=1.8, label=f"{REGIME_LABELS[regime]} (AUC={auc:.3f})")
+        fpr, tpr, _ = roc_curve(data["logits"], data["labels"])
+        plt.plot(fpr.numpy(), tpr.numpy(), color=REGIME_COLORS[regime], lw=1.8,
+                 label=REGIME_LABELS[regime])
 
         # the Sens=0.9 operating point Table 5 reports specificity at
         idx = int((tpr >= 0.9).nonzero()[0])
-        plt.plot(fpr[idx].item(), tpr[idx].item(), "o", color=color, ms=5)
+        plt.plot(fpr[idx].item(), tpr[idx].item(), **OP_MARKER)
 
     plt.axhline(0.9, color="0.6", linestyle=":", linewidth=1)
     plt.plot([0, 1], [0, 1], color="0.6", linestyle="--", linewidth=1)
     plt.xlabel("False positive rate (1 - specificity)")
     plt.ylabel("True positive rate (sensitivity)")
-    plt.title(f"{encoder.upper()} ROC\n(markers = Sens=0.9 operating point)")
+    plt.title("ROC\n(X = Sens=0.9 operating point)")
     plt.legend(loc="lower right")
     _save(plt, out_dir, f"{encoder}_roc.png")
 
@@ -288,22 +305,22 @@ def plot_pr(encoder, runs, out_dir):
     plt.figure(figsize=(5, 5))
 
     for regime, data in runs.items():
-        recall, precision, ap = pr_curve(data["logits"], data["labels"])
-        color = REGIME_COLORS[regime]
-        plt.plot(recall.numpy(), precision.numpy(), color=color, lw=1.8, label=f"{REGIME_LABELS[regime]} (AP={ap:.3f})")
+        recall, precision, _ = pr_curve(data["logits"], data["labels"])
+        plt.plot(recall.numpy(), precision.numpy(), color=REGIME_COLORS[regime], lw=1.8,
+                 label=REGIME_LABELS[regime])
 
         idx = int((recall >= 0.9).nonzero()[0])
-        plt.plot(recall[idx].item(), precision[idx].item(), "o", color=color, ms=5)
+        plt.plot(recall[idx].item(), precision[idx].item(), **OP_MARKER)
 
     # all three regimes are evaluated on the same real test split, so one
     # prevalence line covers every curve
     labels = next(iter(runs.values()))["labels"]
     prevalence = labels.float().mean().item()
-    plt.axhline(prevalence, color="0.6", linestyle="--", linewidth=1, label=f"Chance (prev.={prevalence:.3f})")
+    plt.axhline(prevalence, color="0.6", linestyle="--", linewidth=1, label="Chance")
 
     plt.xlabel("Recall (sensitivity)")
     plt.ylabel("Precision")
-    plt.title(f"{encoder.upper()} precision-recall\n(markers = Recall=0.9 operating point)")
+    plt.title("Precision-recall\n(X = Recall=0.9 operating point)")
     plt.legend(loc="lower left")
     _save(plt, out_dir, f"{encoder}_pr.png")
 
@@ -333,7 +350,10 @@ def main():
     os.makedirs(args.work_dir, exist_ok=True)
     os.makedirs(args.out_dir, exist_ok=True)
 
+    active = active_regimes(args)
     reuse = reused_regimes(args)
+    if len(active) < len(REGIME_LABELS):
+        print(f"=== plotting {', '.join(active)} only ===")
 
     for encoder in args.encoders:
         pkls = pickle_paths(encoder, args)
@@ -343,7 +363,7 @@ def main():
         # --*_pkl_* has to be passed at all
         saved = {}
         needed = []
-        for regime in REGIME_LABELS:
+        for regime in active:
             out_path = os.path.join(args.work_dir, f"{encoder}_{regime}.pt")
             if regime in reuse:
                 if os.path.exists(out_path):
@@ -360,7 +380,7 @@ def main():
             print(f"=== {encoder}: reusing {', '.join(sorted(saved))}; training {', '.join(needed) or 'nothing'} ===")
 
         runs = {}
-        for regime in REGIME_LABELS:
+        for regime in active:
             out_path = saved.get(regime)
             if out_path is None:
                 out_path = extract(encoder, regime, pkls[regime], args.work_dir, args)
